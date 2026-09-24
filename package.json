@@ -1,0 +1,59 @@
+{
+  "name": "pistatusline",
+  "version": "0.1.0",
+  "description": "ccstatusline for the pi coding agent: a customizable, multi-line statusline footer with a TUI editor",
+  "type": "module",
+  "sideEffects": false,
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "statusline",
+    "ccstatusline"
+  ],
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "LICENSE.ccstatusline",
+    "NOTICE"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/extension.js"
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "pretest": "node scripts/ink-backspace.mjs",
+    "test": "bun test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.87.0",
+    "@earendil-works/pi-tui": "0.87.0",
+    "@types/node": "^22.19.0",
+    "@types/pluralize": "^0.0.33",
+    "@types/react": "^19.1.10",
+    "chalk": "^6.0.0",
+    "esbuild": "^0.25.0",
+    "https-proxy-agent": "^8.0.0",
+    "ink": "6.2.0",
+    "ink-gradient": "^4.0.0",
+    "ink-select-input": "^6.2.0",
+    "pluralize": "^8.0.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "string-width": "^8.2.2",
+    "strip-ansi": "^7.1.0",
+    "tinyglobby": "^0.2.14",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.18",
+    "zod": "^4.0.17"
+  }
+}

@@ -1,0 +1,14 @@
+pistatusline includes ccstatusline 2.2.30 (https://github.com/sirmalloc/ccstatusline,
+commit 35440e4), Copyright (c) 2025 Matthew Breedlove, licensed under the MIT License
+(see LICENSE.ccstatusline). Files under src/ other than src/pi/ come from ccstatusline;
+changes made for pi are marked with "pistatusline:" comments.
+
+--- ccstatusline NOTICE ---
+ccstatusline
+
+Copyright (c) 2025 Matthew Breedlove (https://github.com/sirmalloc)
+
+This project is licensed under the MIT License.  
+See the LICENSE file for details.
+
+Original repository: https://github.com/sirmalloc/ccstatusline
