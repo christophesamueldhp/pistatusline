@@ -35,6 +35,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "pretest": "node scripts/ink-backspace.mjs",
     "test": "bun test"

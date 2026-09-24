@@ -21,13 +21,16 @@ not ccstatusline's.
 pi install npm:@christophesamueldhp/pistatusline
 ```
 
-Or from GitHub:
+The npm package ships prebuilt bundles, so installing needs no build step. The git repository does
+not contain `dist/`, so to run from a checkout, build it first:
 
 ```bash
-pi install git:github.com/christophesamueldhp/pistatusline
+git clone https://github.com/christophesamueldhp/pistatusline.git
+cd pistatusline
+npm install
+npm run build
+pi install .
 ```
-
-The package ships prebuilt bundles in `dist/`, so installing needs no build step.
 
 Then start `pi`. The footer is replaced right away. pi has one footer slot, so another package that
 calls `setFooter` competes with this one, and the one loaded last wins. Keep only one enabled.
@@ -114,7 +117,7 @@ npm run build
 pi -ne -e ./dist/extension.js   # try it without installing
 ```
 
-`dist/` is committed: run `npm run build` before committing a source change.
+`dist/` is not committed. `npm publish` rebuilds it (`prepublishOnly`).
 
 The layout of `dist/`:
 
@@ -126,8 +129,7 @@ The layout of `dist/`:
 Issues and pull requests are welcome at
 [github.com/christophesamueldhp/pistatusline](https://github.com/christophesamueldhp/pistatusline).
 
-- Run `npm run typecheck`, `npm test` and `npm run build` before opening a pull request, and commit
-  the rebuilt `dist/` with your source change.
+- Run `npm run typecheck`, `npm test` and `npm run build` before opening a pull request.
 - pi-specific code lives in `src/pi/`. Keep changes to ccstatusline's files small and mark each one
   with a `// pistatusline:` comment, so upstream ccstatusline releases stay easy to merge.
 - A feature that is not specific to pi belongs in [ccstatusline](https://github.com/sirmalloc/ccstatusline)
