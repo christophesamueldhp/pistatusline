@@ -10,7 +10,7 @@ import { resolvePlanUsage } from '../render-core';
 import {
     anthropicUsageSource,
     opencodeGoUsageSource,
-    parseOpencodeGoDashboard,
+    parseOpencodeGoUsage,
     selectUsage
 } from '../usage';
 
@@ -23,29 +23,31 @@ afterEach(() => {
     globalThis.fetch = originalFetch;
 });
 
-describe('parseOpencodeGoDashboard', () => {
-    it('maps the SSR hydration windows onto session/weekly usage', () => {
-        const before = Date.now();
-        const usage = parseOpencodeGoDashboard(
-            'x rollingUsage:$R[3]={usagePercent:37.5,resetInSec:3600} weeklyUsage:$R[4]={resetInSec:86400,usagePercent:12}'
-        );
-
-        expect(usage?.sessionUsage).toBe(37.5);
-        expect(usage?.weeklyUsage).toBe(12);
-        expect(Date.parse(usage?.sessionResetAt ?? '') - before).toBeGreaterThanOrEqual(3600_000 - 1000);
+describe('parseOpencodeGoUsage', () => {
+    it('maps the rolling and weekly windows onto session/weekly usage', () => {
+        expect(parseOpencodeGoUsage({
+            usage: {
+                rolling: { status: 'ok', percent: 37.5, resetsAt: '2026-09-24T10:00:00.000Z' },
+                weekly: { status: 'ok', percent: 54, resetsAt: '2026-09-28T00:00:00.000Z' },
+                monthly: { status: 'ok', percent: 30, resetsAt: '2026-10-03T17:33:15.000Z' }
+            }
+        })).toEqual({
+            sessionUsage: 37.5,
+            sessionResetAt: '2026-09-24T10:00:00.000Z',
+            weeklyUsage: 54,
+            weeklyResetAt: '2026-09-28T00:00:00.000Z'
+        });
     });
 
-    it('falls back to the data-slot markup', () => {
-        const usage = parseOpencodeGoDashboard(
-            '<div data-slot="usage-item"><span data-slot="usage-label">Rolling (5h)</span>'
-            + '<span data-slot="usage-value">81%</span><span data-slot="reset-time">Resets in 1 hour 5 minutes</span></div>'
-        );
-        expect(usage?.sessionUsage).toBe(81);
-        expect(usage?.weeklyUsage).toBeUndefined();
+    it('shows a rate-limited window as used up', () => {
+        expect(parseOpencodeGoUsage({
+            usage: { rolling: { status: 'rate-limited', percent: 97, resetsAt: '2026-09-24T10:00:00.000Z' } }
+        })?.sessionUsage).toBe(100);
     });
 
-    it('returns null for a page without usage', () => {
-        expect(parseOpencodeGoDashboard('<html>login</html>')).toBeNull();
+    it('returns null for a response without usage windows', () => {
+        expect(parseOpencodeGoUsage({ type: 'error' })).toBeNull();
+        expect(parseOpencodeGoUsage(null)).toBeNull();
     });
 });
 
@@ -93,10 +95,28 @@ describe('usage sources', () => {
         expect(await anthropicUsageSource(() => Promise.resolve('tok')).fetch()).toEqual({ error: 'rate-limited' });
     });
 
-    it('leaves OpenCode Go silent without its env credentials', async () => {
+    it('leaves OpenCode Go silent without an API key', async () => {
         const fetchMock = vi.fn();
         stubFetch(fetchMock);
-        expect(await opencodeGoUsageSource({}).fetch()).toBeNull();
+        expect(await opencodeGoUsageSource(() => Promise.resolve(null)).fetch()).toBeNull();
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('reads OpenCode Go usage with the provider API key', async () => {
+        const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+            usage: { rolling: { status: 'ok', percent: 12, resetsAt: '2026-09-24T10:00:00.000Z' } }
+        }))));
+        stubFetch(fetchMock);
+
+        expect(await opencodeGoUsageSource(() => Promise.resolve('go-key')).fetch())
+            .toEqual({ sessionUsage: 12, sessionResetAt: '2026-09-24T10:00:00.000Z' });
+        expect(fetchMock).toHaveBeenCalledWith('https://opencode.ai/zen/go/v1/usage', expect.objectContaining({
+            headers: { Authorization: 'Bearer go-key' }
+        }));
+    });
+
+    it('reports a rejected key as an API error', async () => {
+        stubFetch(vi.fn(() => Promise.resolve(new Response('{"type":"error"}', { status: 401 }))));
+        expect(await opencodeGoUsageSource(() => Promise.resolve('bad')).fetch()).toEqual({ error: 'api-error' });
     });
 });

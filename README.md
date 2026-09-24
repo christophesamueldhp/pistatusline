@@ -60,8 +60,10 @@ These exist because pi is not Claude Code. Everything else behaves the same.
   provider wins; otherwise the first source with data is used.
   - **Anthropic:** your pi Anthropic OAuth login (`/login`), read from the same usage endpoint
     ccstatusline uses, refreshed every 180 s.
-  - **OpenCode Go:** there is no API, so it scrapes the workspace dashboard. Set
-    `OPENCODE_GO_WORKSPACE_ID` and `OPENCODE_GO_AUTH_COOKIE` (the browser `auth` cookie).
+  - **OpenCode Go:** `GET https://opencode.ai/zen/go/v1/usage` with the API key pi already uses for
+    the `opencode-go` provider (`/login` or `OPENCODE_API_KEY`), refreshed every 60 s. The rolling
+    5-hour window maps to the session widgets and the weekly window to the weekly ones. There is no
+    widget for the monthly window.
 
   Without a source the widgets show ccstatusline's `[No credentials]`. Hide that per widget with
   `h` in Edit Lines ("when usage data is unavailable").

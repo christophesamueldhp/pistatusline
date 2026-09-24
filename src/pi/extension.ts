@@ -126,7 +126,8 @@ export default function pistatusline(pi: ExtensionAPI): void {
             // Resolves through pi's auth store, which refreshes an expired OAuth token.
             return (await ctx?.modelRegistry.getApiKeyForProvider('anthropic')) ?? null;
         }),
-        opencodeGoUsageSource()
+        // Resolves the key pi stores for the provider (/login or OPENCODE_API_KEY).
+        opencodeGoUsageSource(async () => (await ctx?.modelRegistry.getApiKeyForProvider('opencode-go')) ?? null)
     ], () => { scheduleRender(0); });
 
     function renderNow(): void {

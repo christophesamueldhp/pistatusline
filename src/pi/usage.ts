@@ -56,104 +56,56 @@ export function anthropicUsageSource(getOAuthToken: () => Promise<string | null>
     };
 }
 
-interface OpencodeGoWindow { usagePercent: number; resetAt: string }
+const OPENCODE_GO_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage';
 
-function parseSsrWindow(html: string, windowName: string): OpencodeGoWindow | null {
-    const num = String.raw`(-?\d+(?:\.\d+)?)`;
-    const pctFirst = new RegExp(String.raw`${windowName}Usage:\$R\[\d+\]=\{[^}]*usagePercent:${num}[^}]*resetInSec:${num}[^}]*\}`).exec(html);
-    const resetFirst = new RegExp(String.raw`${windowName}Usage:\$R\[\d+\]=\{[^}]*resetInSec:${num}[^}]*usagePercent:${num}[^}]*\}`).exec(html);
-    const usagePercent = Number(pctFirst?.[1] ?? resetFirst?.[2]);
-    const resetInSec = Number(pctFirst?.[2] ?? resetFirst?.[1]);
-    if (!Number.isFinite(usagePercent) || !Number.isFinite(resetInSec)) {
+interface OpencodeGoWindow { status?: unknown; percent?: unknown; resetsAt?: unknown }
+
+function goWindow(window: OpencodeGoWindow | undefined): { percent: number; resetsAt: string } | null {
+    const percent = window?.percent;
+    const resetsAt = window?.resetsAt;
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || typeof resetsAt !== 'string') {
         return null;
     }
-    return {
-        usagePercent: Math.max(0, usagePercent),
-        resetAt: new Date(Date.now() + Math.max(0, resetInSec) * 1000).toISOString()
-    };
+    // "rate-limited" means the window is used up, whatever percent the server reports.
+    return { percent: window?.status === 'rate-limited' ? 100 : Math.max(0, percent), resetsAt };
 }
 
-function parseHumanReadableSeconds(text: string): number | null {
-    const normalized = text.toLowerCase().trim().replace(/\s+/g, ' ');
-    if (/^(reset[- ]now|now|resets now)$/.test(normalized)) {
-        return 0;
-    }
-    let total = 0;
-    let matched = false;
-    for (const [unit, seconds] of [['days?', 86400], ['hours?', 3600], ['minutes?', 60], ['seconds?', 1]] as const) {
-        const match = new RegExp(String.raw`(\d+(?:\.\d+)?)\s*${unit}`).exec(normalized);
-        if (match?.[1]) {
-            total += Number(match[1]) * seconds;
-            matched = true;
-        }
-    }
-    return matched ? total : null;
-}
-
-function parseDataSlotWindow(html: string, labelWord: string): OpencodeGoWindow | null {
-    for (const content of html.split(/data-slot="usage-item"/).slice(1)) {
-        const label = /data-slot="usage-label">([^<]+)</.exec(content)?.[1]?.trim().toLowerCase();
-        if (!label?.includes(labelWord)) {
-            continue;
-        }
-        const usageMatch = /data-slot="usage-value">[^0-9]*(\d+(?:\.\d+)?)/.exec(content);
-        const resetMatch = /data-slot="(reset-time|reset-now)">([\s\S]*?)<\/span>/.exec(content);
-        if (!usageMatch?.[1] || !resetMatch) {
-            continue;
-        }
-        const resetText = (resetMatch[2] ?? '').replace(/<!--\$-->|<!--\/-->/g, '').replace(/Resets?\s*in\s*/i, '').trim();
-        const resetInSec = resetMatch[1] === 'reset-now' ? 0 : parseHumanReadableSeconds(resetText);
-        if (resetInSec === null) {
-            continue;
-        }
-        return {
-            usagePercent: Math.max(0, Number(usageMatch[1])),
-            resetAt: new Date(Date.now() + resetInSec * 1000).toISOString()
-        };
-    }
-    return null;
-}
-
-/** OpenCode Go dashboard HTML → UsageData: the rolling 5h window is the "session", weekly is weekly. */
-export function parseOpencodeGoDashboard(html: string): UsageData | null {
-    const rolling = parseSsrWindow(html, 'rolling') ?? parseDataSlotWindow(html, 'rolling');
-    const weekly = parseSsrWindow(html, 'weekly') ?? parseDataSlotWindow(html, 'weekly');
+/**
+ * OpenCode Go usage response → UsageData: the rolling 5-hour window is ccstatusline's
+ * "session", weekly is weekly. The monthly window has no ccstatusline widget.
+ */
+export function parseOpencodeGoUsage(json: unknown): UsageData | null {
+    const usage = (json as { usage?: Record<string, OpencodeGoWindow> } | null)?.usage;
+    const rolling = goWindow(usage?.rolling);
+    const weekly = goWindow(usage?.weekly);
     if (!rolling && !weekly) {
         return null;
     }
     return {
-        ...(rolling ? { sessionUsage: rolling.usagePercent, sessionResetAt: rolling.resetAt } : {}),
-        ...(weekly ? { weeklyUsage: weekly.usagePercent, weeklyResetAt: weekly.resetAt } : {})
+        ...(rolling ? { sessionUsage: rolling.percent, sessionResetAt: rolling.resetsAt } : {}),
+        ...(weekly ? { weeklyUsage: weekly.percent, weeklyResetAt: weekly.resetsAt } : {})
     };
 }
 
-/**
- * OpenCode Go has no usage API; like opencode-quota, scrape the workspace dashboard with the
- * browser `auth` cookie from OPENCODE_GO_WORKSPACE_ID / OPENCODE_GO_AUTH_COOKIE.
- */
-export function opencodeGoUsageSource(env: NodeJS.ProcessEnv = process.env): UsageSource {
+/** OpenCode Go plan usage from its usage endpoint, with the API key pi already uses for the provider. */
+export function opencodeGoUsageSource(getApiKey: () => Promise<string | null>): UsageSource {
     return {
         providers: ['opencode-go'],
         refreshMs: 60_000,
         async fetch() {
-            const workspaceId = env.OPENCODE_GO_WORKSPACE_ID?.trim();
-            const authCookie = env.OPENCODE_GO_AUTH_COOKIE?.trim();
-            if (!workspaceId || !authCookie) {
+            const key = await getApiKey();
+            if (!key) {
                 return null;
             }
             try {
-                const response = await fetch(`https://opencode.ai/workspace/${encodeURIComponent(workspaceId)}/go`, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Gecko/20100101 Firefox/148.0',
-                        'Accept': 'text/html',
-                        'Cookie': `auth=${authCookie}`
-                    },
-                    signal: AbortSignal.timeout(10_000)
+                const response = await fetch(OPENCODE_GO_USAGE_URL, {
+                    headers: { Authorization: `Bearer ${key}` },
+                    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
                 });
                 if (!response.ok) {
                     return { error: response.status === 429 ? 'rate-limited' : 'api-error' };
                 }
-                return parseOpencodeGoDashboard(await response.text()) ?? { error: 'parse-error' };
+                return parseOpencodeGoUsage(await response.json().catch(() => null)) ?? { error: 'parse-error' };
             } catch (error) {
                 return { error: errorFor(error) };
             }
