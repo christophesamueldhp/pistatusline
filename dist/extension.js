@@ -1023,10 +1023,12 @@ var RenderClient = class {
       this.onResult(response);
       this.pump();
     });
+    worker.on("error", () => void 0);
     worker.on("exit", () => {
       if (this.worker === worker) {
         this.worker = void 0;
         this.busy = false;
+        this.pump();
       }
     });
     this.worker = worker;

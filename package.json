@@ -5,6 +5,15 @@
   "type": "module",
   "sideEffects": false,
   "license": "MIT",
+  "author": "christophesamueldhp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/christophesamueldhp/pistatusline.git"
+  },
+  "homepage": "https://github.com/christophesamueldhp/pistatusline#readme",
+  "bugs": {
+    "url": "https://github.com/christophesamueldhp/pistatusline/issues"
+  },
   "keywords": [
     "pi-package",
     "pi",
@@ -13,6 +22,7 @@
   ],
   "files": [
     "dist/",
+    "!dist/meta.json",
     "README.md",
     "LICENSE",
     "LICENSE.ccstatusline",

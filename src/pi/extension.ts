@@ -81,10 +81,14 @@ class RenderClient {
             this.onResult(response);
             this.pump();
         });
+        // Without a listener, an uncaught error in the worker is rethrown in pi's process.
+        // 'exit' follows and respawns the worker on the next request.
+        worker.on('error', () => undefined);
         worker.on('exit', () => {
             if (this.worker === worker) {
                 this.worker = undefined;
                 this.busy = false;
+                this.pump();
             }
         });
         this.worker = worker;

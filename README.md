@@ -1,34 +1,36 @@
 # pistatusline
 
-[ccstatusline](https://github.com/sirmalloc/ccstatusline) for the [pi coding agent](https://pi.dev):
-a customizable, multi-line status line that replaces pi's footer, configured with ccstatusline's own
-TUI editor.
+A customizable, multi-line status line for the [pi coding agent](https://pi.dev), configured with a
+full-screen TUI editor.
 
-It is ccstatusline 2.2.30 running inside pi, not a lookalike. The widgets, the renderer (separators,
-flex separators, merge, padding, Powerline, themes, gradients) and the editor are ccstatusline's code,
-and the settings file uses ccstatusline's schema v4 unchanged. An existing
+pistatusline is based on [ccstatusline](https://github.com/sirmalloc/ccstatusline) by Matthew
+Breedlove, the status line for Claude Code. It ports ccstatusline 2.2.30 to run inside
+[pi](https://github.com/earendil-works/pi) instead of Claude Code: it replaces pi's footer, and
+`/pistatusline` opens ccstatusline's editor. It is not a lookalike. The widgets, the renderer
+(separators, flex separators, merge, padding, Powerline, themes, gradients) and the editor are
+ccstatusline's code, and the settings file uses ccstatusline's schema v4 unchanged. An existing
 `~/.config/ccstatusline/settings.json` renders the same lines in pi as in Claude Code.
+
+pistatusline is an independent project. It is not affiliated with or endorsed by ccstatusline or
+pi. Bugs in pistatusline belong in [this repo's issues](https://github.com/christophesamueldhp/pistatusline/issues),
+not ccstatusline's.
 
 ## Install
 
-The repo ships the prebuilt bundles in `dist/`, so installing needs no build step.
+```bash
+pi install npm:pistatusline
+```
 
-From GitHub (needs git access to the repo):
+Or from GitHub:
 
 ```bash
 pi install git:github.com/christophesamueldhp/pistatusline
 ```
 
-From a local checkout:
-
-```bash
-git clone git@github.com:christophesamueldhp/pistatusline.git ~/Desktop/Project/pistatusline
-pi install ~/Desktop/Project/pistatusline
-```
+The package ships prebuilt bundles in `dist/`, so installing needs no build step.
 
 Then start `pi`. The footer is replaced right away. pi has one footer slot, so another package that
-calls `setFooter` (for example bluclawd's `statusline` extension) competes with this one, and the one
-loaded last wins. Keep only one enabled.
+calls `setFooter` competes with this one, and the one loaded last wins. Keep only one enabled.
 
 ## Configure
 
@@ -102,6 +104,8 @@ Every edit to ccstatusline's files is marked with a `// pistatusline:` comment.
 
 ## Develop
 
+Needs Node.js 22+ and [Bun](https://bun.sh) for the test suite.
+
 ```bash
 npm install
 npm run typecheck
@@ -115,7 +119,26 @@ pi -ne -e ./dist/extension.js   # try it without installing
 The layout of `dist/`:
 
 - `dist/extension.js` is loaded by pi's extension loader and stays free of Ink.
-- `dist/render-worker.js` and `dist/tui.js` load as native ESM and share chunks.
+- `dist/render-worker.js` and `dist/tui-cli.js` load as native ESM and share chunks.
+
+## Contributing
+
+Issues and pull requests are welcome at
+[github.com/christophesamueldhp/pistatusline](https://github.com/christophesamueldhp/pistatusline).
+
+- Run `npm run typecheck`, `npm test` and `npm run build` before opening a pull request, and commit
+  the rebuilt `dist/` with your source change.
+- pi-specific code lives in `src/pi/`. Keep changes to ccstatusline's files small and mark each one
+  with a `// pistatusline:` comment, so upstream ccstatusline releases stay easy to merge.
+- A feature that is not specific to pi belongs in [ccstatusline](https://github.com/sirmalloc/ccstatusline)
+  itself.
+
+## Credits
+
+- [ccstatusline](https://github.com/sirmalloc/ccstatusline) by Matthew Breedlove: the widgets,
+  renderer and editor pistatusline is built on.
+- [pi](https://pi.dev) ([source](https://github.com/earendil-works/pi)): the coding agent
+  pistatusline runs in.
 
 ## License
 
