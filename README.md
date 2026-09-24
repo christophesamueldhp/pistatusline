@@ -65,17 +65,31 @@ These exist because pi is not Claude Code. Everything else behaves the same.
 - **Width.** `flexMode: full` uses the footer's full width. ccstatusline reserves 6 columns for Claude
   Code's own UI, and pi has no equivalent.
 - **Plan usage** (`session-usage`, `weekly-usage`, `reset-timer`, `weekly-reset-timer`, and the
-  per-model and extra-usage widgets) is provider-neutral. The source matching the active model's
-  provider wins; otherwise the first source with data is used.
-  - **Anthropic:** your pi Anthropic OAuth login (`/login`), read from the same usage endpoint
-    ccstatusline uses, refreshed every 180 s.
-  - **OpenCode Go:** `GET https://opencode.ai/zen/go/v1/usage` with the API key pi already uses for
-    the `opencode-go` provider (`/login` or `OPENCODE_API_KEY`), refreshed every 60 s. The rolling
-    5-hour window maps to the session widgets and the weekly window to the weekly ones. There is no
-    widget for the monthly window.
+  per-model and extra-usage widgets) follows the active model's provider. Each source uses the
+  credential pi already has for that provider (`/login` or its environment variable). A provider's
+  plan is polled only after one of its models has been active. Plans with a 5-hour window fill the
+  session widgets, and weekly windows fill the weekly ones.
 
-  Without a source the widgets show ccstatusline's `[No credentials]`. Hide that per widget with
-  `h` in Edit Lines ("when usage data is unavailable").
+  | Provider | Plan | Windows | Refresh |
+  | --- | --- | --- | --- |
+  | `anthropic` (OAuth login) | Claude subscription, ccstatusline's own endpoint | 5-hour, weekly, per-model, extra usage | 180 s |
+  | `opencode-go` | OpenCode Go | 5-hour, weekly | 60 s |
+  | `openai-codex` (OAuth login) | ChatGPT plan, the endpoint the Codex CLI reads | 5-hour, weekly | 60 s |
+  | `kimi-coding` | Kimi For Coding | 5-hour, weekly | 60 s |
+  | `zai`, `zai-coding-cn` | GLM Coding Plan | 5-hour, weekly | 60 s |
+  | `minimax`, `minimax-cn` | MiniMax Token Plan (the plan-wide `general` quota) | 5-hour, weekly | 60 s |
+  | `xai` (OAuth login) | SuperGrok weekly credits | weekly | 60 s |
+
+  - Only the Anthropic and OpenCode Go sources are verified against a live account. The others
+    follow the response formats in each provider's own client and are covered by tests.
+  - Windows without a ccstatusline widget are not shown: OpenCode Go's monthly window, the Kimi
+    and Z.ai monthly quotas, and xAI unified (monthly) billing.
+  - GitHub Copilot counts a monthly premium-request quota, and OpenRouter has a credit balance.
+    Neither has a 5-hour or weekly window, so neither has a source.
+
+  When the active provider has no plan (pay-per-token APIs, local models) or no credentials, the
+  widgets show ccstatusline's `[No credentials]`. They never show another provider's usage. Hide
+  that state per widget with `h` in Edit Lines ("when usage data is unavailable").
 - **Thinking effort.** Also knows pi's `off` and `minimal` levels.
 - **Widgets with no data in pi are left out:** claude-account-email, claude-status, output-style,
   vim-mode, voice-status, remote-control-status, skills, sandbox-status, block-timer, cache-timer,

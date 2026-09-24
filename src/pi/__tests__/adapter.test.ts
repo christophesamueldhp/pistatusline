@@ -131,4 +131,34 @@ describe('toTranscriptRecords', () => {
         expect(analysis.tokenMetrics.contextLength).toBe(300);
         expect(analysis.tokenMetrics.inputTokens).toBe(307);
     });
+
+    it('reads token counts from the parts, whatever the provider reports as its total', async () => {
+        // pi-ai usage as the Responses and Google APIs fill it: totalTokens 0 when the
+        // provider leaves it out, reasoning counted inside output.
+        const records = toTranscriptRecords([
+            user(0),
+            assistant(4, { input: 120, output: 60, cacheRead: 900, cacheWrite: 0, totalTokens: 0, reasoning: 40 } as PiEntry['usage'])
+        ]);
+
+        const analysis = await getTranscriptAnalysisFromRecords(records);
+
+        expect(analysis.tokenMetrics.totalTokens).toBe(1080);
+        expect(analysis.tokenMetrics.contextLength).toBe(1020);
+    });
+
+    it('skips aborted replies for the context length, as pi does', async () => {
+        // Providers that report usage only at the end of the stream leave an aborted reply at zero.
+        const records = toTranscriptRecords([
+            user(0),
+            { type: 'compaction', timestamp: at(1), tokensBefore: 5000 },
+            user(2),
+            assistant(3, { input: 700, output: 20 }),
+            user(4),
+            assistant(5, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, 'aborted')
+        ]);
+
+        const analysis = await getTranscriptAnalysisFromRecords(records);
+
+        expect(analysis.tokenMetrics.contextLength).toBe(700);
+    });
 });

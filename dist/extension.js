@@ -622,6 +622,10 @@ function toTokenUsage(usage) {
     cache_creation_input_tokens: finite(usage.cacheWrite)
   };
 }
+function countsForContext(stopReason, usage) {
+  const total = finite(usage.input) + finite(usage.output) + finite(usage.cacheRead) + finite(usage.cacheWrite);
+  return stopReason !== "error" && stopReason !== "aborted" && total > 0;
+}
 function toTranscriptRecords(entries) {
   const records = [];
   for (const entry of entries) {
@@ -634,7 +638,7 @@ function toTranscriptRecords(entries) {
         records.push({
           type: "assistant",
           timestamp,
-          isApiErrorMessage: entry.message.stopReason === "error",
+          isApiErrorMessage: !countsForContext(entry.message.stopReason, entry.message.usage),
           message: { usage: toTokenUsage(entry.message.usage), stop_reason: entry.message.stopReason ?? "stop" }
         });
       }
@@ -706,6 +710,56 @@ function anthropicUsageSource(getOAuthToken) {
     }
   };
 }
+function jsonUsageSource(providers, refreshMs, request, parse) {
+  return {
+    providers,
+    refreshMs,
+    async fetch() {
+      const target = await request();
+      if (!target) {
+        return null;
+      }
+      try {
+        const response = await fetch(target.url, { headers: target.headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+        if (!response.ok) {
+          return { error: response.status === 429 ? "rate-limited" : "api-error" };
+        }
+        return parse(await response.json().catch(() => null)) ?? { error: "parse-error" };
+      } catch (error) {
+        return { error: errorFor(error) };
+      }
+    }
+  };
+}
+function record(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+}
+function num(value) {
+  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : void 0;
+}
+function clampPercent(value) {
+  return Math.min(100, Math.max(0, value));
+}
+function isoTime(value) {
+  let ms;
+  if (typeof value === "string" && Number.isNaN(Number(value))) {
+    ms = Date.parse(value.replace(/(\.\d{3})\d+/, "$1"));
+  } else {
+    const epoch = num(value);
+    ms = epoch === void 0 || epoch <= 0 ? void 0 : epoch > 1e12 ? epoch : epoch * 1e3;
+  }
+  return ms !== void 0 && Number.isFinite(ms) ? new Date(ms).toISOString() : void 0;
+}
+function toUsageData(session, weekly) {
+  if (!session && !weekly) {
+    return null;
+  }
+  return {
+    ...session ? { sessionUsage: session.percent, ...session.resetAt ? { sessionResetAt: session.resetAt } : {} } : {},
+    ...weekly ? { weeklyUsage: weekly.percent, ...weekly.resetAt ? { weeklyResetAt: weekly.resetAt } : {} } : {}
+  };
+}
 var OPENCODE_GO_USAGE_URL = "https://opencode.ai/zen/go/v1/usage";
 function goWindow(window) {
   const percent = window?.percent;
@@ -728,28 +782,151 @@ function parseOpencodeGoUsage(json) {
   };
 }
 function opencodeGoUsageSource(getApiKey) {
-  return {
-    providers: ["opencode-go"],
-    refreshMs: 6e4,
-    async fetch() {
-      const key = await getApiKey();
-      if (!key) {
-        return null;
-      }
-      try {
-        const response = await fetch(OPENCODE_GO_USAGE_URL, {
-          headers: { Authorization: `Bearer ${key}` },
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-        });
-        if (!response.ok) {
-          return { error: response.status === 429 ? "rate-limited" : "api-error" };
-        }
-        return parseOpencodeGoUsage(await response.json().catch(() => null)) ?? { error: "parse-error" };
-      } catch (error) {
-        return { error: errorFor(error) };
-      }
+  return jsonUsageSource(["opencode-go"], 6e4, async () => {
+    const key = await getApiKey();
+    return key ? { url: OPENCODE_GO_USAGE_URL, headers: { Authorization: `Bearer ${key}` } } : null;
+  }, parseOpencodeGoUsage);
+}
+var ONE_DAY_S = 86400;
+function parseCodexUsage(json) {
+  const limits = record(record(json)?.rate_limit);
+  let session;
+  let weekly;
+  for (const [index, key] of ["primary_window", "secondary_window"].entries()) {
+    const window = record(limits?.[key]);
+    const percent = num(window?.used_percent);
+    if (!window || percent === void 0) {
+      continue;
     }
+    const parsed = { percent: clampPercent(percent), resetAt: isoTime(window.reset_at) };
+    const seconds = num(window.limit_window_seconds);
+    const isSession = seconds === void 0 ? index === 0 : seconds <= ONE_DAY_S;
+    if (isSession) {
+      session ??= parsed;
+    } else {
+      weekly ??= parsed;
+    }
+  }
+  return toUsageData(session, weekly);
+}
+function codexUsageSource(getCredential) {
+  return jsonUsageSource(["openai-codex"], 6e4, async () => {
+    const credential = await getCredential();
+    if (!credential) {
+      return null;
+    }
+    return {
+      url: "https://chatgpt.com/backend-api/wham/usage",
+      headers: {
+        "Authorization": `Bearer ${credential.token}`,
+        "User-Agent": "codex-cli",
+        ...credential.accountId ? { "ChatGPT-Account-Id": credential.accountId } : {}
+      }
+    };
+  }, parseCodexUsage);
+}
+var WINDOW_UNIT_MINUTES = { MINUTE: 1, HOUR: 60, DAY: 1440 };
+function kimiResetAt(data) {
+  return isoTime(data.reset_time ?? data.resetTime ?? data.reset_at ?? data.resetAt);
+}
+function kimiCountWindow(data) {
+  const limit = num(data?.limit);
+  const used = num(data?.used) ?? (limit === void 0 ? void 0 : limit - (num(data?.remaining) ?? limit));
+  if (!data || limit === void 0 || limit <= 0 || used === void 0) {
+    return void 0;
+  }
+  return { percent: clampPercent(used / limit * 100), resetAt: kimiResetAt(data) };
+}
+function kimiRatioWindow(data) {
+  const ratio = num(data?.used_ratio);
+  return data && ratio !== void 0 ? { percent: clampPercent(ratio * 100), resetAt: kimiResetAt(data) } : void 0;
+}
+function parseKimiUsage(json) {
+  const body = record(json);
+  const fiveHour = (Array.isArray(body?.limits) ? body.limits : []).map(record).find((item) => {
+    const window = record(item?.window);
+    const unit = String(window?.timeUnit ?? "").replace(/^TIME_UNIT_/, "");
+    return (num(window?.duration) ?? 0) * (WINDOW_UNIT_MINUTES[unit] ?? 0) === 300;
+  });
+  const pools = record(body?.usages);
+  const session = kimiCountWindow(record(fiveHour?.detail) ?? fiveHour) ?? kimiRatioWindow(record(pools?.limit_5h));
+  const weekly = kimiCountWindow(record(body?.usage)) ?? kimiRatioWindow(record(pools?.limit_7d));
+  return toUsageData(session, weekly);
+}
+function kimiUsageSource(getAuthorization) {
+  return jsonUsageSource(["kimi-coding"], 6e4, async () => {
+    const authorization = await getAuthorization();
+    return authorization ? { url: "https://api.kimi.com/coding/v1/usages", headers: { Authorization: authorization } } : null;
+  }, parseKimiUsage);
+}
+var ZAI_UNIT_HOURS = 3;
+var ZAI_UNIT_WEEKS = 6;
+function parseZaiUsage(json) {
+  const body = record(json);
+  if (body?.success !== true) {
+    return { error: "api-error" };
+  }
+  const limits = (Array.isArray(record(body.data)?.limits) ? record(body.data)?.limits : []).map(record);
+  const tokenWindow = (unit) => {
+    const limit = limits.find((item) => item?.type === "TOKENS_LIMIT" && num(item.unit) === unit);
+    const percent = num(limit?.percentage);
+    return limit && percent !== void 0 ? { percent: clampPercent(percent), resetAt: isoTime(limit.nextResetTime) } : void 0;
   };
+  return toUsageData(tokenWindow(ZAI_UNIT_HOURS), tokenWindow(ZAI_UNIT_WEEKS));
+}
+var ZAI_HOSTS = { "zai": "https://api.z.ai", "zai-coding-cn": "https://open.bigmodel.cn" };
+function zaiUsageSource(provider, getApiKey) {
+  return jsonUsageSource([provider], 6e4, async () => {
+    const key = await getApiKey();
+    return key ? { url: `${ZAI_HOSTS[provider]}/api/monitor/usage/quota/limit`, headers: { Authorization: key } } : null;
+  }, parseZaiUsage);
+}
+var MINIMAX_EXHAUSTED = 2;
+var MINIMAX_UNLIMITED = 3;
+function minimaxWindow(bucket, prefix, end) {
+  const status = num(bucket[`current_${prefix}_status`]);
+  const remaining = num(bucket[`current_${prefix}_remaining_percent`]);
+  const percent = status === MINIMAX_EXHAUSTED ? 100 : remaining === void 0 ? void 0 : 100 - remaining;
+  return percent === void 0 ? void 0 : { percent: clampPercent(percent), resetAt: isoTime(end) };
+}
+function parseMinimaxUsage(json) {
+  const body = record(record(json)?.data) ?? record(json);
+  if (num(record(body?.base_resp)?.status_code) !== 0) {
+    return { error: "no-credentials" };
+  }
+  const buckets = (Array.isArray(body?.model_remains) ? body.model_remains : []).map(record).filter((bucket2) => !!bucket2);
+  const inPlan = buckets.filter((bucket2) => !(num(bucket2.current_interval_status) === MINIMAX_UNLIMITED && num(bucket2.current_weekly_status) === MINIMAX_UNLIMITED));
+  const bucket = inPlan.find((item) => item.model_name === "general") ?? inPlan[0];
+  if (!bucket) {
+    return null;
+  }
+  return toUsageData(minimaxWindow(bucket, "interval", bucket.end_time), minimaxWindow(bucket, "weekly", bucket.weekly_end_time));
+}
+var MINIMAX_HOSTS = { "minimax": "https://api.minimax.io", "minimax-cn": "https://api.minimaxi.com" };
+function minimaxUsageSource(provider, getApiKey) {
+  return jsonUsageSource([provider], 6e4, async () => {
+    const key = await getApiKey();
+    return key ? { url: `${MINIMAX_HOSTS[provider]}/v1/token_plan/remains`, headers: { Authorization: `Bearer ${key}` } } : null;
+  }, parseMinimaxUsage);
+}
+function parseXaiUsage(json) {
+  const config = record(record(json)?.config);
+  const period = record(config?.currentPeriod);
+  const resetAt = isoTime(period?.end);
+  if (!resetAt || !String(period?.type ?? "").toUpperCase().includes("WEEK")) {
+    return null;
+  }
+  const percent = num(config?.creditUsagePercent) ?? (Date.parse(resetAt) > Date.now() ? 0 : void 0);
+  return percent === void 0 ? null : toUsageData(void 0, { percent: clampPercent(percent), resetAt });
+}
+function xaiUsageSource(getOAuthToken) {
+  return jsonUsageSource(["xai"], 6e4, async () => {
+    const token = await getOAuthToken();
+    return token ? {
+      url: "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+      headers: { "Authorization": `Bearer ${token}`, "X-XAI-Token-Auth": "xai-grok-cli", "Accept": "application/json" }
+    } : null;
+  }, parseXaiUsage);
 }
 var PlanUsage = class {
   constructor(sources, onChange) {
@@ -758,35 +935,43 @@ var PlanUsage = class {
   }
   data = /* @__PURE__ */ new Map();
   timers = /* @__PURE__ */ new Map();
+  polling = /* @__PURE__ */ new Set();
   started = false;
   disposed = false;
-  /** Starts polling; called only once a configured line actually has a usage widget. */
+  /** Enables polling; called only once a configured line actually has a usage widget. */
   start() {
     if (this.started || this.disposed) {
       return;
     }
     this.started = true;
-    for (const source of this.sources) {
-      const poll = async () => {
-        const next = await source.fetch().catch(() => null);
-        if (this.disposed) {
-          return;
-        }
-        if (JSON.stringify(next) !== JSON.stringify(this.data.get(source) ?? null)) {
-          this.data.set(source, next);
-          this.onChange();
-        }
-        const timer = setTimeout(() => {
-          void poll();
-        }, source.refreshMs);
-        timer.unref?.();
-        this.timers.set(source, timer);
-      };
-      void poll();
-    }
+    this.onChange();
   }
+  /** Usage of the active provider's plan. A source is polled from the first time its provider is active. */
   get(activeProvider) {
+    const active = this.sources.find((source) => activeProvider !== void 0 && source.providers.includes(activeProvider));
+    if (active && this.started && !this.polling.has(active)) {
+      this.poll(active);
+    }
     return selectUsage(this.sources.map((source) => ({ providers: source.providers, data: this.data.get(source) ?? null })), activeProvider);
+  }
+  poll(source) {
+    this.polling.add(source);
+    const run = async () => {
+      const next = await source.fetch().catch(() => null);
+      if (this.disposed) {
+        return;
+      }
+      if (JSON.stringify(next) !== JSON.stringify(this.data.get(source) ?? null)) {
+        this.data.set(source, next);
+        this.onChange();
+      }
+      const timer = setTimeout(() => {
+        void run();
+      }, source.refreshMs);
+      timer.unref?.();
+      this.timers.set(source, timer);
+    };
+    void run();
   }
   dispose() {
     this.disposed = true;
@@ -796,8 +981,7 @@ var PlanUsage = class {
   }
 };
 function selectUsage(entries, activeProvider) {
-  const matching = entries.find((entry) => entry.data && activeProvider !== void 0 && entry.providers.includes(activeProvider));
-  return matching?.data ?? entries.find((entry) => entry.data && !entry.data.error)?.data ?? entries.find((entry) => entry.data)?.data ?? null;
+  return entries.find((entry) => activeProvider !== void 0 && entry.providers.includes(activeProvider))?.data ?? null;
 }
 
 // src/pi/extension.ts
@@ -873,15 +1057,27 @@ function pistatusline(pi) {
     lines = response.lines;
     requestFooterRender?.();
   });
+  const apiKey = (provider) => async () => await ctx?.modelRegistry.getApiKeyForProvider(provider) ?? null;
+  const oauthToken = (provider) => async () => readStoredCredential(provider)?.type === "oauth" ? apiKey(provider)() : null;
   const usage = new PlanUsage([
-    anthropicUsageSource(async () => {
-      if (readStoredCredential("anthropic")?.type !== "oauth") {
-        return null;
-      }
-      return await ctx?.modelRegistry.getApiKeyForProvider("anthropic") ?? null;
+    anthropicUsageSource(oauthToken("anthropic")),
+    opencodeGoUsageSource(apiKey("opencode-go")),
+    codexUsageSource(async () => {
+      const token = await oauthToken("openai-codex")();
+      const credential = readStoredCredential("openai-codex");
+      const accountId = credential?.type === "oauth" ? credential.accountId : void 0;
+      return token ? { token, ...typeof accountId === "string" ? { accountId } : {} } : null;
     }),
-    // Resolves the key pi stores for the provider (/login or OPENCODE_API_KEY).
-    opencodeGoUsageSource(async () => await ctx?.modelRegistry.getApiKeyForProvider("opencode-go") ?? null)
+    // A Kimi OAuth login authenticates with a header rather than an API key.
+    kimiUsageSource(async () => {
+      const auth = (await ctx?.modelRegistry.getProviderAuth("kimi-coding"))?.auth;
+      return auth?.headers?.Authorization ?? (auth?.apiKey ? `Bearer ${auth.apiKey}` : null);
+    }),
+    zaiUsageSource("zai", apiKey("zai")),
+    zaiUsageSource("zai-coding-cn", apiKey("zai-coding-cn")),
+    minimaxUsageSource("minimax", apiKey("minimax")),
+    minimaxUsageSource("minimax-cn", apiKey("minimax-cn")),
+    xaiUsageSource(oauthToken("xai"))
   ], () => {
     scheduleRender(0);
   });

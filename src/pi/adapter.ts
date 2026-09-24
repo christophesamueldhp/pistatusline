@@ -84,6 +84,16 @@ function toTokenUsage(usage: PiUsage) {
 }
 
 /**
+ * pi's rule for a reply whose usage measures the context: not failed or aborted, and with
+ * usage reported (providers that send usage only at the end of a stream leave an aborted
+ * reply at zero).
+ */
+function countsForContext(stopReason: string | undefined, usage: PiUsage): boolean {
+    const total = finite(usage.input) + finite(usage.output) + finite(usage.cacheRead) + finite(usage.cacheWrite);
+    return stopReason !== 'error' && stopReason !== 'aborted' && total > 0;
+}
+
+/**
  * pi session entries as the Claude Code transcript records ccstatusline's analysis reads:
  * user turns (speed intervals), assistant replies (tokens, context length), compaction
  * boundaries, and side LLM calls (summaries, cache warming) as sidechain usage.
@@ -100,7 +110,7 @@ export function toTranscriptRecords(entries: readonly PiEntry[]): unknown[] {
                 records.push({
                     type: 'assistant',
                     timestamp,
-                    isApiErrorMessage: entry.message.stopReason === 'error',
+                    isApiErrorMessage: !countsForContext(entry.message.stopReason, entry.message.usage),
                     message: { usage: toTokenUsage(entry.message.usage), stop_reason: entry.message.stopReason ?? 'stop' }
                 });
             }

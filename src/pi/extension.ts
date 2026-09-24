@@ -28,8 +28,13 @@ import {
 } from './state';
 import {
     anthropicUsageSource,
+    codexUsageSource,
+    kimiUsageSource,
+    minimaxUsageSource,
     opencodeGoUsageSource,
-    PlanUsage
+    PlanUsage,
+    xaiUsageSource,
+    zaiUsageSource
 } from './usage';
 
 const DIST_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -115,16 +120,31 @@ export default function pistatusline(pi: ExtensionAPI): void {
         requestFooterRender?.();
     });
 
+    // The key or token pi uses for the provider (/login or its env variable), resolved through
+    // pi's auth store, which refreshes an expired OAuth token.
+    const apiKey = (provider: string) => async () => (await ctx?.modelRegistry.getApiKeyForProvider(provider)) ?? null;
+    // Subscription usage exists only for an OAuth login; an API key bills per token.
+    const oauthToken = (provider: string) => async () => (readStoredCredential(provider)?.type === 'oauth' ? apiKey(provider)() : null);
+
     const usage = new PlanUsage([
-        anthropicUsageSource(async () => {
-            if (readStoredCredential('anthropic')?.type !== 'oauth') {
-                return null;
-            }
-            // Resolves through pi's auth store, which refreshes an expired OAuth token.
-            return (await ctx?.modelRegistry.getApiKeyForProvider('anthropic')) ?? null;
+        anthropicUsageSource(oauthToken('anthropic')),
+        opencodeGoUsageSource(apiKey('opencode-go')),
+        codexUsageSource(async () => {
+            const token = await oauthToken('openai-codex')();
+            const credential = readStoredCredential('openai-codex');
+            const accountId = credential?.type === 'oauth' ? credential.accountId : undefined;
+            return token ? { token, ...(typeof accountId === 'string' ? { accountId } : {}) } : null;
         }),
-        // Resolves the key pi stores for the provider (/login or OPENCODE_API_KEY).
-        opencodeGoUsageSource(async () => (await ctx?.modelRegistry.getApiKeyForProvider('opencode-go')) ?? null)
+        // A Kimi OAuth login authenticates with a header rather than an API key.
+        kimiUsageSource(async () => {
+            const auth = (await ctx?.modelRegistry.getProviderAuth('kimi-coding'))?.auth;
+            return auth?.headers?.Authorization ?? (auth?.apiKey ? `Bearer ${auth.apiKey}` : null);
+        }),
+        zaiUsageSource('zai', apiKey('zai')),
+        zaiUsageSource('zai-coding-cn', apiKey('zai-coding-cn')),
+        minimaxUsageSource('minimax', apiKey('minimax')),
+        minimaxUsageSource('minimax-cn', apiKey('minimax-cn')),
+        xaiUsageSource(oauthToken('xai'))
     ], () => { scheduleRender(0); });
 
     function renderNow(): void {
