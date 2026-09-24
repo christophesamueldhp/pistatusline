@@ -58,7 +58,7 @@ const native = await esbuild.build({
     entryPoints: {
         'render-worker': 'src/pi/render-worker.ts',
         'git-review-refresh': 'src/pi/git-review-refresh.ts',
-        'tui': 'src/pi/tui-entry.ts'
+        'tui-cli': 'src/pi/tui-cli.ts'
     },
     splitting: true,
     chunkNames: 'chunks/[name]-[hash]'

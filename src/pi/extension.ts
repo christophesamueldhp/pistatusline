@@ -1,8 +1,6 @@
+import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
-import {
-    fileURLToPath,
-    pathToFileURL
-} from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 import {
@@ -26,10 +24,8 @@ import type {
 } from './protocol';
 import {
     readState,
-    writeState,
     type PiStatuslineState
 } from './state';
-import type { PiStatuslineHost } from './tui-entry';
 import {
     anthropicUsageSource,
     opencodeGoUsageSource,
@@ -40,9 +36,10 @@ const DIST_DIR = path.dirname(fileURLToPath(import.meta.url));
 // Claude Code debounces statusline updates by 300 ms.
 const RENDER_DEBOUNCE_MS = 300;
 
-// pi loads this file through jiti; a plain import() would be rewritten by it, and the editor
-// bundle (Ink + yoga, top-level await) has to load as native ESM.
-const nativeImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<unknown>;
+// pi runs on Node, but a compiled pi binary's execPath is pi itself; the editor needs Node.
+function nodeExecutable(): string {
+    return /^node(\.exe)?$/i.test(path.basename(process.execPath)) ? process.execPath : 'node';
+}
 
 class RenderClient {
     private worker: Worker | undefined;
@@ -261,46 +258,38 @@ export default function pistatusline(pi: ExtensionAPI): void {
                 context.ui.notify('/pistatusline needs the interactive terminal UI', 'warning');
                 return;
             }
-            const host: PiStatuslineHost = {
-                isEnabled: () => state.enabled,
-                setEnabled: (enabled) => {
-                    state = { ...state, enabled };
-                    writeState(statePath, state);
-                    return Promise.resolve();
-                },
-                getRefreshInterval: () => state.refreshInterval,
-                setRefreshInterval: (seconds) => {
-                    state = { ...state, refreshInterval: seconds };
-                    writeState(statePath, state);
-                    return Promise.resolve();
-                }
-            };
-
-            let failure: unknown;
+            let failure: string | undefined;
             await context.ui.custom<void>((tui, _theme, _keybindings, done) => {
-                // Same hand-over pi uses for its external editor: stop pi's TUI, let the
-                // ccstatusline editor own the terminal, then restart and fully redraw.
+                // Hand the terminal to the editor process without leaving copies of pi's screen
+                // behind. A plain stop() writes the current frame into the scrollback (fullscreen
+                // mode dumps it on leaving the alternate screen; regular mode parks the cursor
+                // under it), so every /pistatusline would leave one more footer after pi exits.
+                // preserveScreen skips that, and the editor draws on its own alternate screen.
                 setImmediate(() => {
-                    void (async () => {
-                        tui.stop();
-                        try {
-                            const editor = await nativeImport(pathToFileURL(path.join(DIST_DIR, 'tui.js')).href) as typeof import('./tui-entry');
-                            await editor.runEditor(host, configPath);
-                        } catch (error) {
-                            failure = error;
-                        } finally {
-                            tui.start();
-                            tui.requestRender(true);
-                            done();
+                    tui.stop({ preserveScreen: true });
+                    try {
+                        const result = spawnSync(nodeExecutable(), [path.join(DIST_DIR, 'tui-cli.js'), configPath, statePath], { stdio: 'inherit' });
+                        if (result.error) {
+                            failure = result.error.message;
+                        } else if (result.status !== 0) {
+                            failure = `exit code ${String(result.status ?? result.signal)}`;
                         }
-                    })();
+                    } finally {
+                        tui.start();
+                        // Fullscreen re-enters an empty alternate screen and must redraw it all;
+                        // regular mode's frame is still on screen, and a forced redraw would
+                        // print it a second time below itself.
+                        tui.requestRender(tui.mode === 'fullscreen');
+                        done();
+                    }
                 });
                 return { render: () => [], invalidate: () => undefined };
             });
 
             if (failure) {
-                context.ui.notify(`pistatusline editor failed: ${failure instanceof Error ? failure.message : String(failure)}`, 'error');
+                context.ui.notify(`pistatusline editor failed: ${failure}`, 'error');
             }
+            state = readState(statePath);
             applyState(context);
         }
     });

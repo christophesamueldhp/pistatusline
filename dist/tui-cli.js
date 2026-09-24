@@ -4065,16 +4065,16 @@ function diffObject(current, imported, prefix) {
   const keys = /* @__PURE__ */ new Set([...Object.keys(current), ...Object.keys(imported)]);
   const entries = [];
   for (const key of keys) {
-    const path3 = prefix ? `${prefix}.${key}` : key;
+    const path4 = prefix ? `${prefix}.${key}` : key;
     const a = current[key];
     const b = imported[key];
     if (JSON.stringify(a) === JSON.stringify(b)) {
       continue;
     }
     if (a && b && typeof a === "object" && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
-      entries.push(...diffObject(a, b, path3));
+      entries.push(...diffObject(a, b, path4));
     } else {
-      entries.push({ path: path3, current: a, imported: b });
+      entries.push({ path: path4, current: a, imported: b });
     }
   }
   return entries;
@@ -4654,23 +4654,23 @@ var HideStatesEditor = ({ widget, states, onComplete, onCancel }) => {
     } else if (key.downArrow && states.length > 0) {
       setSelectedIndex(selectedIndex + 1 > states.length - 1 ? 0 : selectedIndex + 1);
     } else if (input === " ") {
-      const state = states[selectedIndex];
-      if (state) {
-        setEnabledKeys(enabledKeys.includes(state.key) ? enabledKeys.filter((enabledKey) => enabledKey !== state.key) : [...enabledKeys, state.key]);
+      const state2 = states[selectedIndex];
+      if (state2) {
+        setEnabledKeys(enabledKeys.includes(state2.key) ? enabledKeys.filter((enabledKey) => enabledKey !== state2.key) : [...enabledKeys, state2.key]);
       }
     }
   });
   return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(Box_default, { flexDirection: "column", children: [
     /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { bold: true, children: "Hide" }),
     /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { dimColor: true, children: "\u2191\u2193 select, Space toggle, Enter save, ESC cancel" }),
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Box_default, { marginTop: 1, flexDirection: "column", children: states.map((state, index) => {
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Box_default, { marginTop: 1, flexDirection: "column", children: states.map((state2, index) => {
       const isSelected = index === selectedIndex;
-      const isEnabled = enabledKeys.includes(state.key);
+      const isEnabled = enabledKeys.includes(state2.key);
       return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(Box_default, { flexDirection: "row", flexWrap: "nowrap", children: [
         /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Box_default, { width: 3, children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { color: isSelected ? "green" : void 0, children: isSelected ? "\u25B6 " : "  " }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { color: isSelected ? "green" : void 0, children: `[${isEnabled ? "x" : " "}] ${state.label}` }),
-        state.key === MERGE_TARGET_HIDDEN_HIDEABLE_STATE.key && !widget.merge && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { dimColor: true, children: " (requires merge)" })
-      ] }, state.key);
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { color: isSelected ? "green" : void 0, children: `[${isEnabled ? "x" : " "}] ${state2.label}` }),
+        state2.key === MERGE_TARGET_HIDDEN_HIDEABLE_STATE.key && !widget.merge && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(Text, { dimColor: true, children: " (requires merge)" })
+      ] }, state2.key);
     }) })
   ] });
 };
@@ -4690,18 +4690,18 @@ function setPickerState(setWidgetPicker, normalizeState, updater) {
 function getPickerCategories(widgetCategories) {
   return [...widgetCategories];
 }
-function normalizePickerState(state, widgetCatalog, widgetCategories) {
+function normalizePickerState(state2, widgetCatalog, widgetCategories) {
   const filteredCategories = getPickerCategories(widgetCategories);
-  const selectedCategory = state.selectedCategory && filteredCategories.includes(state.selectedCategory) ? state.selectedCategory : filteredCategories[0] ?? null;
-  const hasTopLevelSearch = state.level === "category" && state.categoryQuery.trim().length > 0;
+  const selectedCategory = state2.selectedCategory && filteredCategories.includes(state2.selectedCategory) ? state2.selectedCategory : filteredCategories[0] ?? null;
+  const hasTopLevelSearch = state2.level === "category" && state2.categoryQuery.trim().length > 0;
   const effectiveCategory = hasTopLevelSearch ? "All" : selectedCategory ?? "All";
-  const effectiveQuery = hasTopLevelSearch ? state.categoryQuery : state.widgetQuery;
+  const effectiveQuery = hasTopLevelSearch ? state2.categoryQuery : state2.widgetQuery;
   const filteredWidgets = filterWidgetCatalog(widgetCatalog, effectiveCategory, effectiveQuery);
-  const hasSelectedType = state.selectedType ? filteredWidgets.some((entry) => entry.type === state.selectedType) : false;
+  const hasSelectedType = state2.selectedType ? filteredWidgets.some((entry) => entry.type === state2.selectedType) : false;
   return {
-    ...state,
+    ...state2,
     selectedCategory,
-    selectedType: hasSelectedType ? state.selectedType : filteredWidgets[0]?.type ?? null
+    selectedType: hasSelectedType ? state2.selectedType : filteredWidgets[0]?.type ?? null
   };
 }
 function getPickerViewState(widgetPicker, widgetCatalog, widgetCategories) {
@@ -4731,7 +4731,7 @@ function handlePickerInputMode({
   setWidgetPicker,
   applyWidgetPickerSelection
 }) {
-  const normalizeState = (state) => normalizePickerState(state, widgetCatalog, widgetCategories);
+  const normalizeState = (state2) => normalizePickerState(state2, widgetCatalog, widgetCategories);
   const {
     filteredCategories,
     selectedCategory,
@@ -7825,11 +7825,53 @@ async function runTUI(host) {
   await render_default(/* @__PURE__ */ (0, import_jsx_runtime20.jsx)(App, { host })).waitUntilExit();
 }
 
-// src/pi/tui-entry.ts
-async function runEditor(host, configPath) {
-  initConfigPath(configPath);
-  await runTUI(host);
+// src/pi/state.ts
+import * as fs2 from "fs";
+import * as path3 from "path";
+var DEFAULT_STATE = { enabled: true, refreshInterval: 10 };
+function readState(file) {
+  try {
+    const raw = JSON.parse(fs2.readFileSync(file, "utf-8"));
+    return {
+      enabled: typeof raw.enabled === "boolean" ? raw.enabled : DEFAULT_STATE.enabled,
+      refreshInterval: raw.refreshInterval === null || typeof raw.refreshInterval === "number" ? raw.refreshInterval : DEFAULT_STATE.refreshInterval
+    };
+  } catch {
+    return { ...DEFAULT_STATE };
+  }
 }
-export {
-  runEditor
-};
+function writeState(file, state2) {
+  fs2.mkdirSync(path3.dirname(file), { recursive: true });
+  const temp = `${file}.${process.pid}.tmp`;
+  fs2.writeFileSync(temp, JSON.stringify(state2, null, 2), "utf-8");
+  fs2.renameSync(temp, file);
+}
+
+// src/pi/tui-cli.ts
+var [configPath, statePath] = process.argv.slice(2);
+if (!configPath || !statePath) {
+  process.stderr.write("usage: tui-cli <settings.json> <state.json>\n");
+  process.exit(2);
+}
+process.stdout.write("\x1B[?1049h");
+initConfigPath(configPath);
+var state = readState(statePath);
+try {
+  await runTUI({
+    isEnabled: () => state.enabled,
+    setEnabled: (enabled) => {
+      state = { ...state, enabled };
+      writeState(statePath, state);
+      return Promise.resolve();
+    },
+    getRefreshInterval: () => state.refreshInterval,
+    setRefreshInterval: (seconds) => {
+      state = { ...state, refreshInterval: seconds };
+      writeState(statePath, state);
+      return Promise.resolve();
+    }
+  });
+} finally {
+  process.stdout.write("\x1B[?1049l");
+}
+process.exit(0);

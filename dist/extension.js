@@ -6,11 +6,9 @@ const __filename = __pistatuslineFileURLToPath(import.meta.url);
 const __dirname = __pistatuslineDirname(__filename);
 
 // src/pi/extension.ts
-import * as path2 from "node:path";
-import {
-  fileURLToPath,
-  pathToFileURL
-} from "node:url";
+import { spawnSync } from "node:child_process";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import {
   getAgentDir,
@@ -664,7 +662,6 @@ function toTranscriptRecords(entries) {
 
 // src/pi/state.ts
 import * as fs from "fs";
-import * as path from "path";
 var DEFAULT_STATE = { enabled: true, refreshInterval: 10 };
 function readState(file) {
   try {
@@ -676,12 +673,6 @@ function readState(file) {
   } catch {
     return { ...DEFAULT_STATE };
   }
-}
-function writeState(file, state) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(state, null, 2), "utf-8");
-  fs.renameSync(temp, file);
 }
 
 // src/pi/usage.ts
@@ -810,9 +801,11 @@ function selectUsage(entries, activeProvider) {
 }
 
 // src/pi/extension.ts
-var DIST_DIR = path2.dirname(fileURLToPath(import.meta.url));
+var DIST_DIR = path.dirname(fileURLToPath(import.meta.url));
 var RENDER_DEBOUNCE_MS = 300;
-var nativeImport = new Function("specifier", "return import(specifier)");
+function nodeExecutable() {
+  return /^node(\.exe)?$/i.test(path.basename(process.execPath)) ? process.execPath : "node";
+}
 var RenderClient = class {
   constructor(onResult) {
     this.onResult = onResult;
@@ -839,7 +832,7 @@ var RenderClient = class {
     if (this.worker) {
       return this.worker;
     }
-    const worker = new Worker(path2.join(DIST_DIR, "render-worker.js"));
+    const worker = new Worker(path.join(DIST_DIR, "render-worker.js"));
     worker.unref();
     worker.on("message", (response) => {
       this.busy = false;
@@ -862,9 +855,9 @@ var RenderClient = class {
   }
 };
 function pistatusline(pi) {
-  const baseDir = path2.join(getAgentDir(), "pistatusline");
-  const configPath = path2.join(baseDir, "settings.json");
-  const statePath = path2.join(baseDir, "state.json");
+  const baseDir = path.join(getAgentDir(), "pistatusline");
+  const configPath = path.join(baseDir, "settings.json");
+  const statePath = path.join(baseDir, "state.json");
   let state = readState(statePath);
   let ctx;
   let lines = [];
@@ -1018,42 +1011,29 @@ function pistatusline(pi) {
         context.ui.notify("/pistatusline needs the interactive terminal UI", "warning");
         return;
       }
-      const host = {
-        isEnabled: () => state.enabled,
-        setEnabled: (enabled) => {
-          state = { ...state, enabled };
-          writeState(statePath, state);
-          return Promise.resolve();
-        },
-        getRefreshInterval: () => state.refreshInterval,
-        setRefreshInterval: (seconds) => {
-          state = { ...state, refreshInterval: seconds };
-          writeState(statePath, state);
-          return Promise.resolve();
-        }
-      };
       let failure;
       await context.ui.custom((tui, _theme, _keybindings, done) => {
         setImmediate(() => {
-          void (async () => {
-            tui.stop();
-            try {
-              const editor = await nativeImport(pathToFileURL(path2.join(DIST_DIR, "tui.js")).href);
-              await editor.runEditor(host, configPath);
-            } catch (error) {
-              failure = error;
-            } finally {
-              tui.start();
-              tui.requestRender(true);
-              done();
+          tui.stop({ preserveScreen: true });
+          try {
+            const result = spawnSync(nodeExecutable(), [path.join(DIST_DIR, "tui-cli.js"), configPath, statePath], { stdio: "inherit" });
+            if (result.error) {
+              failure = result.error.message;
+            } else if (result.status !== 0) {
+              failure = `exit code ${String(result.status ?? result.signal)}`;
             }
-          })();
+          } finally {
+            tui.start();
+            tui.requestRender(tui.mode === "fullscreen");
+            done();
+          }
         });
         return { render: () => [], invalidate: () => void 0 };
       });
       if (failure) {
-        context.ui.notify(`pistatusline editor failed: ${failure instanceof Error ? failure.message : String(failure)}`, "error");
+        context.ui.notify(`pistatusline editor failed: ${failure}`, "error");
       }
+      state = readState(statePath);
       applyState(context);
     }
   });
