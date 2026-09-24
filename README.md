@@ -18,7 +18,7 @@ not ccstatusline's.
 ## Install
 
 ```bash
-pi install npm:pistatusline
+pi install npm:@christophesamueldhp/pistatusline
 ```
 
 Or from GitHub:
