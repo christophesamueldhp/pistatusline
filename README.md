@@ -11,9 +11,18 @@ and the settings file uses ccstatusline's schema v4 unchanged. An existing
 
 ## Install
 
+The repo ships the prebuilt bundles in `dist/`, so installing needs no build step.
+
+From GitHub (needs git access to the repo):
+
 ```bash
-git clone <this repo> ~/Desktop/Project/pistatusline
-cd ~/Desktop/Project/pistatusline && npm install   # builds dist/
+pi install git:github.com/christophesamueldhp/pistatusline
+```
+
+From a local checkout:
+
+```bash
+git clone git@github.com:christophesamueldhp/pistatusline.git ~/Desktop/Project/pistatusline
 pi install ~/Desktop/Project/pistatusline
 ```
 
@@ -80,12 +89,14 @@ Every edit to ccstatusline's files is marked with a `// pistatusline:` comment.
 ## Develop
 
 ```bash
-npm install          # also builds dist/
+npm install
 npm run typecheck
 npm test             # bun test: ccstatusline's suite plus src/pi tests
 npm run build
 pi -ne -e ./dist/extension.js   # try it without installing
 ```
+
+`dist/` is committed: run `npm run build` before committing a source change.
 
 The layout of `dist/`:
 

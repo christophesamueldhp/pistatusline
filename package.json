@@ -25,7 +25,6 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "prepare": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "pretest": "node scripts/ink-backspace.mjs",
     "test": "bun test"
