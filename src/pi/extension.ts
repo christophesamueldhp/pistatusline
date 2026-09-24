@@ -26,6 +26,7 @@ import {
     readState,
     type PiStatuslineState
 } from './state';
+import { renderStatuses } from './statuses';
 import {
     anthropicUsageSource,
     codexUsageSource,
@@ -207,7 +208,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
             return;
         }
         if (!footerInstalled) {
-            context.ui.setFooter((tui) => {
+            context.ui.setFooter((tui, theme, footerData) => {
                 requestFooterRender = () => { tui.requestRender(); };
                 return {
                     render(width: number): string[] {
@@ -217,7 +218,10 @@ export default function pistatusline(pi: ExtensionAPI): void {
                         }
                         // Lines rendered for a wider terminal stay on screen until the new
                         // render lands; never hand pi a line wider than the footer.
-                        return lines.map(line => truncateStyledText(line, width));
+                        return [
+                            ...lines.map(line => truncateStyledText(line, width)),
+                            ...renderStatuses(footerData.getExtensionStatuses(), width, theme.fg('dim', ' · '))
+                        ];
                     },
                     invalidate(): void {},
                     dispose(): void {

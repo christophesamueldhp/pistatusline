@@ -69,6 +69,10 @@ These exist because pi is not Claude Code. Everything else behaves the same.
   (default 10).
 - **Width.** `flexMode: full` uses the footer's full width. ccstatusline reserves 6 columns for Claude
   Code's own UI, and pi has no equivalent.
+- **Extension statuses.** What other pi extensions publish with `ctx.ui.setStatus` shows under the
+  status line, as it does in pi's own footer: one row joined with ` · ` (`mode` first, then `tasks`,
+  `agents` last, the rest alphabetically). A status that contains a line break is drawn as its own
+  block under that row, spacing kept.
 - **Plan usage** (`session-usage`, `weekly-usage`, `reset-timer`, `weekly-reset-timer`, and the
   per-model and extra-usage widgets) follows the active model's provider. Each source uses the
   credential pi already has for that provider (`/login` or its environment variable). A provider's
