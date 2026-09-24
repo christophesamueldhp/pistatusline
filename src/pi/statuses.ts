@@ -1,28 +1,14 @@
 import { truncateStyledText } from '../utils/ansi';
 
-// Claude Code's order: the permission mode first, background tasks beside it, the agent
-// view hint last. Keys missing here sort alphabetically in between.
-const FIRST = ['mode', 'tasks'];
-const LAST = ['agents'];
-
-function rank(key: string): number {
-    if (FIRST.includes(key)) {
-        return FIRST.indexOf(key);
-    }
-    if (LAST.includes(key)) {
-        return FIRST.length + 1 + LAST.indexOf(key);
-    }
-    return FIRST.length;
-}
-
 /**
  * The lines extensions publish with `ctx.ui.setStatus`, which pi's own footer shows and a
- * replacement footer has to draw itself. Single-line statuses share one row joined by
+ * replacement footer has to draw itself, in pi's order: by key, so an extension orders its
+ * statuses by naming their keys. Single-line statuses share one row joined by
  * `separator`; a status with a line break, even a trailing one, is a block of its own below
  * that row, spacing kept.
  */
 export function renderStatuses(statuses: ReadonlyMap<string, string>, width: number, separator: string): string[] {
-    const sorted = [...statuses.entries()].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+    const sorted = [...statuses.entries()].sort(([a], [b]) => a.localeCompare(b));
     const chips: string[] = [];
     const blocks: string[] = [];
     for (const [, text] of sorted) {

@@ -14,14 +14,14 @@ describe('renderStatuses', () => {
         expect(render([])).toEqual([]);
     });
 
-    it('puts the mode first, tasks beside it, the agents hint last, the rest alphabetically', () => {
+    it('orders the row by key, as pi does', () => {
         expect(render([
-            ['agents', '← for agents'],
+            ['9-agents', '← for agents'],
             ['mcp', 'mcp 2'],
-            ['tasks', '1 shell'],
+            ['2-tasks', '1 shell'],
             ['shell', 'bash mode'],
-            ['mode', '⏵⏵ auto mode on']
-        ])).toEqual(['⏵⏵ auto mode on · 1 shell · mcp 2 · bash mode · ← for agents']);
+            ['1-mode', '⏵⏵ auto mode on']
+        ])).toEqual(['⏵⏵ auto mode on · 1 shell · ← for agents · mcp 2 · bash mode']);
     });
 
     it('draws a multi-line status as its own block below the row, keeping its spacing', () => {
