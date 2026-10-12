@@ -95,9 +95,11 @@ These exist because pi is not Claude Code. Everything else behaves the same.
   - GitHub Copilot counts a monthly premium-request quota, and OpenRouter has a credit balance.
     Neither has a 5-hour or weekly window, so neither has a source.
 
-  When the active provider has no plan (pay-per-token APIs, local models) or no credentials, the
-  widgets show ccstatusline's `[No credentials]`. They never show another provider's usage. Hide
-  that state per widget with `h` in Edit Lines ("when usage data is unavailable").
+  When the active provider has no plan (an API key such as one from the Anthropic Console, other
+  pay-per-token APIs, local models), the usage widgets are left out, along with their separators.
+  A plan login whose token cannot be resolved (a failed OAuth refresh) shows ccstatusline's
+  `[No credentials]` instead. The widgets never show another provider's usage. Hide error states
+  per widget with `h` in Edit Lines ("when usage data is unavailable").
 - **Thinking effort.** Also knows pi's `off` and `minimal` levels.
 - **Widgets with no data in pi are left out:** claude-account-email, claude-status, output-style,
   vim-mode, voice-status, remote-control-status, skills, sandbox-status, block-timer, cache-timer,

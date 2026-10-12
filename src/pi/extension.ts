@@ -128,8 +128,18 @@ export default function pistatusline(pi: ExtensionAPI): void {
     // The key or token pi uses for the provider (/login or its env variable), resolved through
     // pi's auth store, which refreshes an expired OAuth token.
     const apiKey = (provider: string) => async () => (await ctx?.modelRegistry.getApiKeyForProvider(provider)) ?? null;
-    // Subscription usage exists only for an OAuth login; an API key bills per token.
-    const oauthToken = (provider: string) => async () => (readStoredCredential(provider)?.type === 'oauth' ? apiKey(provider)() : null);
+    // Subscription usage exists only for an OAuth login; an API key bills per token. A login
+    // without a usable token (a failed refresh) throws, which PlanUsage shows as missing credentials.
+    const oauthToken = (provider: string) => async () => {
+        if (readStoredCredential(provider)?.type !== 'oauth') {
+            return null;
+        }
+        const token = await apiKey(provider)();
+        if (!token) {
+            throw new Error(`No ${provider} OAuth token`);
+        }
+        return token;
+    };
 
     const usage = new PlanUsage([
         anthropicUsageSource(oauthToken('anthropic')),

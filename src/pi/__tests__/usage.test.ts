@@ -72,10 +72,14 @@ describe('selectUsage', () => {
         expect(selectUsage([claude, go], 'anthropic')).toEqual({ sessionUsage: 10 });
     });
 
-    it('shows no usage when the active provider has no plan-usage source', () => {
+    it('reports no plan when the active provider has no plan-usage source or no plan credential', () => {
         expect(selectUsage([claude, go], 'openai')).toBeNull();
         expect(selectUsage([claude, go], undefined)).toBeNull();
         expect(selectUsage([{ providers: ['anthropic'], data: null }], 'anthropic')).toBeNull();
+    });
+
+    it('reports a source that has not answered yet as loading, not as no plan', () => {
+        expect(selectUsage([{ providers: ['anthropic'], data: undefined }], 'anthropic')).toEqual({});
     });
 
     it('passes the active source\'s error through', () => {
@@ -283,7 +287,7 @@ describe('PlanUsage', () => {
         let changes = 0;
         const usage = new PlanUsage([source('anthropic'), source('opencode-go')], () => { changes++; });
 
-        expect(usage.get('opencode-go')).toBeNull();
+        expect(usage.get('opencode-go')).toEqual({});
         usage.start();
         usage.get('opencode-go');
         await new Promise(resolve => setImmediate(resolve));
@@ -291,6 +295,26 @@ describe('PlanUsage', () => {
         expect(fetched).toEqual(['opencode-go']);
         expect(usage.get('opencode-go')).toEqual({ sessionUsage: 1 });
         expect(changes).toBeGreaterThan(0);
+        usage.dispose();
+    });
+
+    it('reports no plan once a source answers without a plan credential', async () => {
+        const usage = new PlanUsage([{ providers: ['anthropic'], refreshMs: 60_000, fetch: () => Promise.resolve(null) }], () => {});
+        usage.start();
+        usage.get('anthropic');
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(usage.get('anthropic')).toBeNull();
+        usage.dispose();
+    });
+
+    it('reports a credential that cannot be resolved as missing credentials', async () => {
+        const usage = new PlanUsage([{ providers: ['anthropic'], refreshMs: 60_000, fetch: () => Promise.reject(new Error('refresh failed')) }], () => {});
+        usage.start();
+        usage.get('anthropic');
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(usage.get('anthropic')).toEqual({ error: 'no-credentials' });
         usage.dispose();
     });
 });

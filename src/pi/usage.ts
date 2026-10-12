@@ -14,12 +14,14 @@ export type PlanUsageData = UsageData & { anthropicJson?: string };
  * Provider-neutral plan usage for ccstatusline's usage widgets (session-usage, weekly-usage,
  * reset timers, ...). Each source polls one billing plan and adapts it to ccstatusline's
  * UsageData. Only the active model's provider counts: another plan's usage says nothing about
- * the model in use. Without a source or credentials the widgets fall back to ccstatusline's
- * own "no credentials" state (hideable per widget in the editor).
+ * the model in use. A provider without a plan (no source, or a pay-per-token API key) leaves the
+ * widgets out; a plan login whose credential cannot be resolved shows ccstatusline's
+ * "no credentials" state.
  */
 export interface UsageSource {
     readonly providers: readonly string[];
     readonly refreshMs: number;
+    /** null: the credential in use has no plan. Rejects when a plan credential cannot be resolved. */
     fetch(): Promise<PlanUsageData | null>;
 }
 
@@ -361,6 +363,7 @@ export function xaiUsageSource(getOAuthToken: () => Promise<string | null>): Usa
 }
 
 export class PlanUsage {
+    // A source missing here has not answered yet.
     private readonly data = new Map<UsageSource, PlanUsageData | null>();
     private readonly timers = new Map<UsageSource, ReturnType<typeof setTimeout>>();
     private readonly polling = new Set<UsageSource>();
@@ -384,17 +387,17 @@ export class PlanUsage {
         if (active && this.started && !this.polling.has(active)) {
             this.poll(active);
         }
-        return selectUsage(this.sources.map(source => ({ providers: source.providers, data: this.data.get(source) ?? null })), activeProvider);
+        return selectUsage(this.sources.map(source => ({ providers: source.providers, data: this.data.get(source) })), activeProvider);
     }
 
     private poll(source: UsageSource): void {
         this.polling.add(source);
         const run = async () => {
-            const next = await source.fetch().catch(() => null);
+            const next = await source.fetch().catch((): PlanUsageData => ({ error: 'no-credentials' }));
             if (this.disposed) {
                 return;
             }
-            if (JSON.stringify(next) !== JSON.stringify(this.data.get(source) ?? null)) {
+            if (!this.data.has(source) || JSON.stringify(next) !== JSON.stringify(this.data.get(source))) {
                 this.data.set(source, next);
                 this.onChange();
             }
@@ -413,9 +416,14 @@ export class PlanUsage {
     }
 }
 
+/**
+ * null when the active provider has no plan (no source, or a credential without one), so the
+ * widgets are left out; `{}` while its source has not answered yet.
+ */
 export function selectUsage(
-    entries: readonly { providers: readonly string[]; data: PlanUsageData | null }[],
+    entries: readonly { providers: readonly string[]; data: PlanUsageData | null | undefined }[],
     activeProvider: string | undefined
 ): PlanUsageData | null {
-    return entries.find(entry => activeProvider !== undefined && entry.providers.includes(activeProvider))?.data ?? null;
+    const entry = entries.find(item => activeProvider !== undefined && item.providers.includes(activeProvider));
+    return entry ? (entry.data === undefined ? {} : entry.data) : null;
 }

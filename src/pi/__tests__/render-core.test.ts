@@ -66,7 +66,21 @@ describe('renderLines with the user ccstatusline config', () => {
         expect(visible[0]?.length).toBe(140);
     });
 
-    it('shows ccstatusline\'s error state for usage widgets when no plan-usage source has data', async () => {
+    it('shows ccstatusline\'s error state for usage widgets when the plan credential is missing', async () => {
+        const lines = await renderLines({
+            settings: userSettings,
+            configError: null,
+            status: status(),
+            records: [],
+            sessionName: null,
+            usage: { error: 'no-credentials' },
+            width: 140
+        });
+
+        expect(getVisibleText(lines[1] ?? '')).toContain('No credentials');
+    });
+
+    it('leaves usage widgets out when the active provider has no plan', async () => {
         const lines = await renderLines({
             settings: userSettings,
             configError: null,
@@ -77,6 +91,9 @@ describe('renderLines with the user ccstatusline config', () => {
             width: 140
         });
 
-        expect(getVisibleText(lines[1] ?? '')).toContain('No credentials');
+        const visible = lines.map(line => getVisibleText(line));
+        // Line 2 holds only usage widgets and a separator, so it drops out entirely.
+        expect(visible).toHaveLength(1);
+        expect(visible[0]).toContain('Opus 5.5');
     });
 });

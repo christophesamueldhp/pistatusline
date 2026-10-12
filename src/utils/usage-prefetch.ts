@@ -26,7 +26,7 @@ const BASE_USAGE_WIDGET_TYPES = [
     'extra-usage-used'
 ];
 
-const USAGE_WIDGET_TYPES = new Set<string>([
+export const USAGE_WIDGET_TYPES = new Set<string>([
     ...BASE_USAGE_WIDGET_TYPES,
     ...WEEKLY_MODEL_USAGE_BUCKETS.map(bucket => bucket.widgetType)
 ]);

@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import type { RenderContext } from '../types/RenderContext';
 import type { Settings } from '../types/Settings';
 import type { StatusJSON } from '../types/StatusJSON';
+import type { WidgetItem } from '../types/Widget';
 import { getVisibleText } from '../utils/ansi';
 import { updateColorMap } from '../utils/colors';
 import { ZERO_COMPACTION_STATS } from '../utils/compaction';
@@ -21,8 +22,16 @@ import {
     isWidgetSpeedWindowEnabled
 } from '../utils/speed-window';
 import { parseUsageApiResponse } from '../utils/usage-fetch';
-import { hasUsageDependentWidgets } from '../utils/usage-prefetch';
+import {
+    hasUsageDependentWidgets,
+    USAGE_WIDGET_TYPES
+} from '../utils/usage-prefetch';
 import type { UsageData } from '../utils/usage-types';
+import {
+    isHidden,
+    parseHideStates
+} from '../widgets/shared/hideable';
+import { USAGE_NO_DATA_HIDEABLE_STATE } from '../widgets/shared/usage-display';
 
 import type { PlanUsageData } from './usage';
 
@@ -33,7 +42,7 @@ export interface RenderInput {
     /** pi session entries converted to Claude transcript records (see adapter.ts). */
     records: readonly unknown[];
     sessionName: string | null;
-    /** Plan usage from the provider-neutral sources; null when no source has data. */
+    /** Plan usage from the provider-neutral sources; null when the active provider has no plan. */
     usage: PlanUsageData | null;
     width: number;
 }
@@ -47,6 +56,14 @@ export function resolvePlanUsage(usage: PlanUsageData | null): UsageData | null 
 
 const SPEED_WIDGET_TYPES = new Set(['output-speed', 'input-speed', 'total-speed']);
 
+function hideUsageWidget(item: WidgetItem): WidgetItem {
+    if (!USAGE_WIDGET_TYPES.has(item.type) || isHidden(item, USAGE_NO_DATA_HIDEABLE_STATE.key)) {
+        return item;
+    }
+    const hide = [...parseHideStates(item.metadata?.hide), USAGE_NO_DATA_HIDEABLE_STATE.key].join(',');
+    return { ...item, metadata: { ...item.metadata, hide } };
+}
+
 /**
  * ccstatusline's renderMultipleLines (src/ccstatusline.ts in upstream) minus its Claude Code
  * specifics: data comes from pi instead of stdin + transcript file, and lines are returned
@@ -57,8 +74,10 @@ export async function renderLines(input: RenderInput): Promise<string[]> {
     chalk.level = settings.colorLevel;
     updateColorMap();
 
-    const lines = settings.lines;
-    const has = (type: string) => lines.some(line => line.some(item => item.type === type));
+    // Without a plan there is no usage to show, so the usage widgets render as their
+    // "when usage data is unavailable" hide state does.
+    const lines = input.usage === null ? settings.lines.map(line => line.map(hideUsageWidget)) : settings.lines;
+    const has =(type: string) => lines.some(line => line.some(item => item.type === type));
     const hasSpeedItems = lines.some(line => line.some(item => SPEED_WIDGET_TYPES.has(item.type)));
     const hasCompactionWidget = has('compaction-counter');
     const requestedSpeedWindows = new Set<number>();
@@ -82,7 +101,7 @@ export async function renderLines(input: RenderInput): Promise<string[]> {
         tokenMetrics: analysis.tokenMetrics,
         speedMetrics: analysis.speedMetricsCollection?.sessionAverage ?? null,
         windowedSpeedMetrics: analysis.speedMetricsCollection?.windowed ?? null,
-        usageData: hasUsageDependentWidgets(lines) ? (resolvePlanUsage(input.usage) ?? { error: 'no-credentials' }) : null,
+        usageData: hasUsageDependentWidgets(lines) ? (resolvePlanUsage(input.usage) ?? {}) : null,
         claudeStatusData: null,
         sessionDuration: analysis.sessionDuration,
         transcriptSessionName: has('session-name') ? input.sessionName : undefined,
