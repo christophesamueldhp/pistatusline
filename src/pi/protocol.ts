@@ -10,6 +10,8 @@ export interface RenderRequest {
     records: unknown[];
     sessionName: string | null;
     usage: PlanUsageData | null;
+    /** Where pi keeps the active provider's usage for remote views (see usage-cache.ts); others leave it out. */
+    usageCache?: { dir: string; provider: string };
 }
 
 /** Render worker → main thread. */

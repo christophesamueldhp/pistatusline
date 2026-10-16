@@ -107,6 +107,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
     const baseDir = path.join(getAgentDir(), 'pistatusline');
     const configPath = path.join(baseDir, 'settings.json');
     const statePath = path.join(baseDir, 'state.json');
+    const usageCacheDir = path.join(baseDir, 'usage');
 
     let state: PiStatuslineState = readState(statePath);
     let ctx: ExtensionContext | undefined;
@@ -189,7 +190,8 @@ export default function pistatusline(pi: ExtensionAPI): void {
                 }),
                 records: toTranscriptRecords(branchEntries),
                 sessionName: sessionManager.getSessionName() ?? null,
-                usage: usage.get(ctx.model?.provider)
+                usage: usage.get(ctx.model?.provider),
+                ...(ctx.model ? { usageCache: { dir: usageCacheDir, provider: ctx.model.provider } } : {})
             });
         } catch {
             // A context replaced by /new or /resume throws on access; the next session_start

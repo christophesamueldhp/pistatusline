@@ -50,8 +50,9 @@ or "Save & Exit". The footer picks up the change as soon as the editor closes.
 | --- | --- |
 | `~/.pi/agent/pistatusline/settings.json` | ccstatusline settings (schema v4). Seeded from `~/.config/ccstatusline/settings.json` on first run. |
 | `~/.pi/agent/pistatusline/state.json` | `enabled` and `refreshInterval`, which ccstatusline keeps in Claude Code's `settings.json`. |
+| `~/.pi/agent/pistatusline/usage/<provider>.json` | The last plan usage the footer showed for that provider: `fetchedAt` plus the usage percentages, reset times and extra-usage amounts, never credentials. Written when the values change, for tools that draw this status line elsewhere. |
 
-`PI_CODING_AGENT_DIR` moves both files, as it does for the rest of pi.
+`PI_CODING_AGENT_DIR` moves these files, as it does for the rest of pi.
 
 ## Differences from ccstatusline
 

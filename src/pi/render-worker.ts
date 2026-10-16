@@ -14,7 +14,11 @@ import type {
     RenderRequest,
     RenderResponse
 } from './protocol';
-import { renderLines } from './render-core';
+import {
+    renderLines,
+    resolvePlanUsage
+} from './render-core';
+import { writeUsageCache } from './usage-cache';
 
 setGitReviewRefreshScript(path.join(path.dirname(fileURLToPath(import.meta.url)), 'git-review-refresh.js'));
 
@@ -42,6 +46,9 @@ parentPort?.on('message', (request: RenderRequest) => {
                 usage: request.usage,
                 width: request.width
             });
+            if (request.usageCache) {
+                writeUsageCache(request.usageCache.dir, request.usageCache.provider, resolvePlanUsage(request.usage));
+            }
             response = { id: request.id, lines, needsUsage: hasUsageDependentWidgets(settings.lines) };
         } catch (error) {
             response = { id: request.id, lines: [], needsUsage: false, error: error instanceof Error ? error.message : String(error) };
