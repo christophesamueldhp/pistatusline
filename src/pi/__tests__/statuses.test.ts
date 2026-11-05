@@ -31,6 +31,20 @@ describe('renderStatuses', () => {
         ])).toEqual(['⏵⏵ auto mode on', '  ⎿ explore   Searching…', '  ⎿ review    Reading…']);
     });
 
+    it('draws bluclawd\'s subagent panel below the chip row that holds the trust badge', () => {
+        expect(render([
+            ['9-agents', '← for agents'],
+            ['8-subagents', 'Subagents\n❯ scout  explorer  running  12s\n  mapper  explorer  running  3s\n'],
+            ['2-tasks', '1 shell'],
+            ['1-mode', '⏵⏵ always']
+        ])).toEqual([
+            '⏵⏵ always · 1 shell · ← for agents',
+            'Subagents',
+            '❯ scout  explorer  running  12s',
+            '  mapper  explorer  running  3s'
+        ]);
+    });
+
     it('treats a single row with a trailing line break as a block', () => {
         expect(render([['subagents', '  ⎿ explore\n'], ['mode', 'm']])).toEqual(['m', '  ⎿ explore']);
     });
