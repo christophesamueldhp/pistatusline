@@ -683,7 +683,7 @@ export async function getTranscriptAnalysis(
     }));
 }
 
-// pistatusline: same analysis over in-memory transcript records (no subagent files to follow).
+// pistatusline: the same analysis over in-memory transcript records, with no subagent files to follow.
 export async function getTranscriptAnalysisFromRecords(
     records: readonly unknown[],
     options: TranscriptAnalysisOptions = {}

@@ -40,8 +40,6 @@ export class SessionCostWidget implements Widget {
             return null;
         }
 
-        // Keep the zero-state threshold tied to the baseline cent precision,
-        // independent of the selected display style or decimal override.
         const roundsToZeroCents = totalCost >= 0 && totalCost < 0.005;
         if (roundsToZeroCents && isHidden(item, ZERO_HIDEABLE_STATE.key)) {
             return null;

@@ -1,7 +1,7 @@
 {
   "name": "@christophesamueldhp/pistatusline",
   "version": "0.1.5",
-  "description": "ccstatusline for the pi coding agent: a customizable, multi-line statusline footer with a TUI editor",
+  "description": "A customizable, multi-line status line footer for the pi coding agent, with a TUI editor, based on ccstatusline",
   "type": "module",
   "sideEffects": false,
   "license": "MIT",

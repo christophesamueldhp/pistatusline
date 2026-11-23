@@ -39,7 +39,6 @@ const mockSpawnSync = spawnSync as unknown as {
     mockImplementation: (impl: (command: string, args: string[], options: SpawnOptions) => SpawnSyncReturns<string>) => void;
 };
 
-/** One scripted command run: what it prints, and how it terminated. */
 interface CommandResponse {
     stdout?: string;
     result?: Partial<SpawnSyncReturns<string>>;
@@ -68,12 +67,10 @@ function errnoError(code: string): Error {
     return Object.assign(new Error(code), { code });
 }
 
-/** Queues one response per upcoming run, in order. */
 function queueRuns(...items: CommandResponse[]): void {
     responses.push(...items);
 }
 
-/** Sets the response for every run with no queued entry left. */
 function alwaysRespond(item: CommandResponse): void {
     fallbackResponse = item;
 }
@@ -187,8 +184,6 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(1);
         });
 
-        // Claude Code runs the status line as a fresh process per repaint, so this
-        // is the case the cache exists for: an in-process map would never hit.
         it('reuses the persisted result after the in-process cache is gone', () => {
             vi.spyOn(Date, 'now').mockReturnValue(1000);
             const home = useTempHome();
@@ -219,15 +214,11 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(2);
         });
 
-        // The TTL has to start when the output became available. Measuring from
-        // before the run would leave anything slower than the TTL uncacheable,
-        // which is exactly the case worth caching.
         it('gives a slow command a full TTL measured from when it finished', () => {
             const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1000);
             useTempHome();
             useFixedCwd();
             mockSpawnSync.mockImplementation(() => {
-                // The command occupies 2s, twice the TTL under test.
                 nowSpy.mockReturnValue(3000);
                 return spawnResult({ stdout: JSON.stringify({ status: 'ok', stdout: 'slow' }) });
             });
@@ -253,8 +244,6 @@ describe('runCustomCommand', () => {
             expect(fs.existsSync(getCacheDir(home))).toBe(false);
         });
 
-        // Caching is opt-in, so an absent setting has to behave exactly as it did
-        // before the setting existed.
         it('runs the command on every call when no TTL is configured', () => {
             const home = useTempHome();
             useFixedCwd();
@@ -277,8 +266,6 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(2);
         });
 
-        // Two widgets can run the same command under different timeouts. Without
-        // the timeout in the key the second would inherit the first's [Timeout].
         it('caches per timeout, so a longer-lived widget runs on its own terms', () => {
             useTempHome();
             useFixedCwd();
@@ -302,8 +289,6 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(2);
         });
 
-        // Without a session id there is nothing to separate one session's output
-        // from another's, so the shared file has to stay out of it.
         it('keeps output out of the shared file when the session id is missing', () => {
             const home = useTempHome();
             useFixedCwd();
@@ -325,8 +310,6 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(1);
         });
 
-        // Terminal width is part of the payload the command reads, so a resize has
-        // to re-run it rather than redisplay output measured for the old width.
         it('caches per terminal width, so a resize runs the command again', () => {
             useTempHome();
             useFixedCwd();
@@ -380,8 +363,6 @@ describe('runCustomCommand', () => {
             expect(mockSpawnSync.mock.calls).toHaveLength(2);
         });
 
-        // Every widget in a render pass rewrites this file whole, so one chatty
-        // command would otherwise make the pass quadratic in its output size.
         it('caps how much output can enter the cache', () => {
             const home = useTempHome();
             useFixedCwd();
@@ -394,8 +375,6 @@ describe('runCustomCommand', () => {
             expect(fs.statSync(getOnlyCachePath(home)).size).toBeLessThan(32_768);
         });
 
-        // Session ids rotate, so without pruning the file would gain an entry per
-        // session and never lose one.
         it('drops persisted entries that no TTL can still serve', () => {
             const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1000);
             const home = useTempHome();
@@ -427,8 +406,6 @@ describe('runCustomCommand', () => {
             expect(Object.keys(cache.entries ?? {})).toEqual(['my-widget\x001000\x00s1\x00120']);
         });
 
-        // Custom command output is whatever its author chose to print, so the cache
-        // file must not be readable by other accounts on the machine.
         it.skipIf(process.platform === 'win32')('writes the persisted cache owner-only', () => {
             const home = useTempHome();
             useFixedCwd();

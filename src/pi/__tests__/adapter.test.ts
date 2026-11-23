@@ -133,8 +133,6 @@ describe('toTranscriptRecords', () => {
     });
 
     it('reads token counts from the parts, whatever the provider reports as its total', async () => {
-        // pi-ai usage as the Responses and Google APIs fill it: totalTokens 0 when the
-        // provider leaves it out, reasoning counted inside output.
         const records = toTranscriptRecords([
             user(0),
             assistant(4, { input: 120, output: 60, cacheRead: 900, cacheWrite: 0, totalTokens: 0, reasoning: 40 } as PiEntry['usage'])
@@ -147,7 +145,6 @@ describe('toTranscriptRecords', () => {
     });
 
     it('skips aborted replies for the context length, as pi does', async () => {
-        // Providers that report usage only at the end of the stream leave an aborted reply at zero.
         const records = toTranscriptRecords([
             user(0),
             { type: 'compaction', timestamp: at(1), tokensBefore: 5000 },

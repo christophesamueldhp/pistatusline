@@ -1,6 +1,5 @@
 import type { CompactionData } from '../types/RenderContext';
 
-/** Shared zeroed stats for missing/unreadable transcripts and as a render fallback. Treat as read-only. */
 export const ZERO_COMPACTION_STATS: CompactionData = Object.freeze({
     count: 0,
     byTrigger: Object.freeze({ auto: 0, manual: 0, unknown: 0 }),
@@ -15,11 +14,6 @@ export function isCompactBoundary(record: unknown): boolean {
     return r.type === 'system' && r.subtype === 'compact_boundary' && r.isSidechain !== true;
 }
 
-/**
- * Returns the post-compaction context size (`compactMetadata.postTokens`) for a
- * compact_boundary record, or null when the record is not a boundary or omits a
- * finite postTokens value (older Claude Code transcripts).
- */
 export function getCompactBoundaryPostTokens(record: unknown): number | null {
     if (!isCompactBoundary(record)) {
         return null;

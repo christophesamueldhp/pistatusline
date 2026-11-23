@@ -160,9 +160,6 @@ describe('v3 to v4 hide flag migration', () => {
         }
     });
 
-    // git-review's hideNoGit also hid its no-PR placeholder, so it expands to
-    // both states. git-ci-status never hid its '-' placeholder, so the same flag
-    // must not switch that on behind the user's back.
     it('leaves no-data off on git-ci-status when converting hideNoGit', () => {
         const item = migrateItem({ id: '1', type: 'git-ci-status', metadata: { hideNoGit: 'true' } });
 
@@ -181,9 +178,6 @@ describe('v3 to v4 hide flag migration', () => {
         expect(item?.metadata).toBeUndefined();
     });
 
-    // An explicit empty list is how the editor records "hide nothing", so it has
-    // to outlive the conversion; folding it away re-enables default-enabled
-    // states the user turned off.
     it('keeps an explicit empty hide list from re-enabling default-enabled states', () => {
         const item = migrateItem({ id: '1', type: 'git-ahead-behind', metadata: { hide: '', hideNoGit: 'false' } });
 
@@ -196,8 +190,6 @@ describe('v3 to v4 hide flag migration', () => {
         expect(item?.metadata).toEqual({ hide: 'no-git' });
     });
 
-    // The rule table is an object literal, so a type naming one of its inherited
-    // members must not be mistaken for a rule.
     it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty'])('leaves the %s widget type untouched', (type) => {
         const metadata = { hideNoGit: 'true' };
 
@@ -228,17 +220,7 @@ describe('v3 to v4 hide flag migration', () => {
         expect(migrateItem({ id: '1', type, metadata: { hideWhenEmpty: 'true' } })?.metadata).toEqual({ hide: 'empty' });
     });
 
-    // The table is keyed by widget type, so a widget added without a matching
-    // entry migrates to nothing and its user's setting is dropped on upgrade.
-    // Drive both checks off the registry so a new widget cannot slip past.
     describe('every registered widget is covered by the hide table', () => {
-        // States a v3 flag could reach. 'zero', 'no-data' and 'default-value'
-        // are excluded: this PR introduces them as opt-in, so most widgets
-        // declaring them have no legacy flag to convert.
-        // One state can come from different flags depending on the widget:
-        // Ahead/Behind reached 'no-upstream' through hideNoGit, while the
-        // upstream remote widgets reached it through hideNoRemote. Any one
-        // candidate converting is enough.
         const LEGACY_FLAGS_FOR_STATE: Record<string, string[]> = {
             'no-git': ['hideNoGit'],
             'no-jj': ['hideNoJj'],
@@ -256,9 +238,6 @@ describe('v3 to v4 hide flag migration', () => {
 
         const declaredStatesOf = (type: string): string[] => (getWidget(type)?.getHideableStates?.() ?? []).map(state => state.key);
 
-        // Only widgets the table owns take part in the conversion. The rest
-        // (whose states this PR introduces, with no v3 flag behind them) are
-        // returned untouched by design, so there is nothing to convert.
         const registered = getAllWidgetTypes(DEFAULT_SETTINGS)
             .filter(type => type in V4_HIDE_FLAG_RULES)
             .map(type => ({ type, states: declaredStatesOf(type) }))
@@ -268,10 +247,6 @@ describe('v3 to v4 hide flag migration', () => {
             expect(registered.length).toBeGreaterThan(20);
         });
 
-        // The behavioural probe below can only speak for types the table lists,
-        // so assert the table's shape directly too: a rule whose state order
-        // disagrees with its widget silently drops the missing states, and a key
-        // the registry cannot resolve is a typo that converts nothing.
         // pistatusline: rules for widgets pi leaves out (skills, cache-timer) stay for old configs.
         it.each(Object.keys(V4_HIDE_FLAG_RULES).filter(type => getWidget(type)))('%s has a rule matching its widget', (type) => {
             const rule = V4_HIDE_FLAG_RULES[type];
@@ -306,23 +281,11 @@ describe('v3 to v4 hide flag migration', () => {
                         .toBe(`${type}:${stateKey} reached by a legacy flag`);
                 }
 
-                // A hand-written list is authoritative, so every state the widget
-                // declares has to survive the conversion rather than being
-                // filtered out by a stale state order. The disabled flag is what
-                // puts the item on the conversion path at all, since an item
-                // carrying no legacy key is returned untouched; 'false' keeps the
-                // flag from contributing states of its own, so the assertion
-                // isolates the state-order filter.
                 const probe = migrateItem({
                     id: '1',
                     type,
                     metadata: { hide: stateKeys.join(','), hideNoGit: 'false' }
                 });
-                // The trigger flag is consumed by the conversion, so its absence
-                // is proof the probe reached the filter. Without this the
-                // assertion below passes vacuously for an item returned
-                // untouched, which is how the original version of this test
-                // missed three stale state orders.
                 expect(Object.keys((probe?.metadata ?? {}) as Record<string, unknown>)).not.toContain('hideNoGit');
                 expect(hideListOf(probe).sort()).toEqual([...stateKeys].sort());
             }

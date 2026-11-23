@@ -60,8 +60,8 @@ import {
 
 const GITHUB_REPO_URL = 'https://github.com/sirmalloc/ccstatusline';
 
-// pistatusline: pi owns what ccstatusline keeps in Claude Code's settings.json — whether the
-// statusline is active and how often it refreshes.
+// pistatusline: pi owns what ccstatusline keeps in Claude Code's settings.json, which is whether
+// the status line is active and how often it refreshes.
 export interface PiStatuslineHost {
     isEnabled(): boolean;
     setEnabled(enabled: boolean): Promise<void>;
@@ -204,20 +204,14 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
 
     useEffect(() => {
                 void loadSettings().then((loadedSettings) => {
-            // Set global chalk level based on settings (default to 256 colors for compatibility)
             chalk.level = loadedSettings.colorLevel;
             setSettings(loadedSettings);
             setOriginalSettings(cloneSettings(loadedSettings));
-            // Capture why settings.json was rejected (if at all) so the TUI can warn and
-            // guard saves. Read it here, in the load callback: the module-scoped signal is
-            // reset by any later loadSettings/saveInstallationMetadata call.
             setConfigLoadError(getConfigLoadError());
         });
-                // Check for Powerline fonts on startup (use sync version that doesn't call execSync)
         const fontStatus = checkPowerlineFonts();
         setPowerlineFontStatus(fontStatus);
 
-        // Optionally do the async check later (but not blocking React)
         void checkPowerlineFontsAsync().then((asyncStatus) => {
             setPowerlineFontStatus(asyncStatus);
         });
@@ -232,7 +226,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
         };
     }, []);
 
-    // Check for changes whenever settings update
     useEffect(() => {
         if (originalSettings) {
             const hasAnyChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
@@ -240,7 +233,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
         }
     }, [settings, originalSettings]);
 
-    // Clear header message after 2 seconds
     useEffect(() => {
         if (flashMessage) {
             const timer = setTimeout(() => {
@@ -254,7 +246,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
         if (key.ctrl && input === 'c') {
             exit();
         }
-        // Global save shortcut
         if (key.ctrl && input === 's' && settings && screen !== 'confirm') {
             const performSave = () => {
                 void (async () => {
@@ -262,7 +253,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                         await saveSettings(settings);
                         setOriginalSettings(cloneSettings(settings));
                         setHasChanges(false);
-                        // File is valid again after an explicit save → clear the banner + guard.
                         setConfigLoadError(null);
                         setFlashMessage({
                             text: '✓ Configuration saved',
@@ -278,9 +268,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
             };
 
             const saveGuard = buildInvalidConfigSaveConfirm(configLoadError, () => {
-                // The confirm dialog doesn't self-dismiss; its action must navigate away
-                // (matching the other confirm flows in this file). Return to the main menu
-                // before saving so the success flash isn't hidden behind the dialog.
                 setConfirmDialog(null);
                 setScreen('main');
                 performSave();
@@ -437,8 +424,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                     }
                 };
 
-                // Save & Exit is the second explicit-save route (besides Ctrl+S); guard it
-                // the same way so an invalid settings.json isn't overwritten without consent.
                 const saveGuard = buildInvalidConfigSaveConfirm(configLoadError, () => {
                     setConfirmDialog(null);
                     setScreen('main');
@@ -510,7 +495,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                 {screen === 'main' && (
                     <MainMenu
                         onSelect={(value, index) => {
-                            // Only persist menu selection if not exiting
                             if (value !== 'save' && value !== 'exit') {
                                 setMenuSelections(prev => ({ ...prev, main: index }));
                             }
@@ -534,8 +518,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                         }}
                         onLinesUpdate={updateLines}
                         onBack={() => {
-                            // Save that we came from 'lines' menu (index 0)
-                            // Clear the line selection so it resets next time we enter
                             setMenuSelections(prev => ({ ...prev, main: 0 }));
                             setScreen('main');
                         }}
@@ -549,7 +531,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                         widgets={settings.lines[selectedLine] ?? []}
                         onUpdate={(widgets) => { updateLine(selectedLine, widgets); }}
                         onBack={() => {
-                            // When going back to lines menu, preserve which line was selected
                             setMenuSelections(prev => ({ ...prev, lines: selectedLine }));
                             setScreen('lines');
                         }}
@@ -567,7 +548,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                             setScreen('colors');
                         }}
                         onBack={() => {
-                            // Save that we came from 'colors' menu (index 1)
                             setMenuSelections(prev => ({ ...prev, main: 1 }));
                             setScreen('main');
                         }}
@@ -584,13 +564,11 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                         lineIndex={selectedLine}
                         settings={settings}
                         onUpdate={(updatedWidgets) => {
-                            // Update only the selected line
                             const newLines = [...settings.lines];
                             newLines[selectedLine] = updatedWidgets;
                             setSettings({ ...settings, lines: newLines });
                         }}
                         onBack={() => {
-                            // Go back to line selection for colors
                             setScreen('colorLines');
                         }}
                     />
@@ -605,7 +583,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                             if (target === 'width') {
                                 setScreen('terminalWidth');
                             } else {
-                                // Save that we came from 'terminalConfig' menu (index 3)
                                 setMenuSelections(prev => ({ ...prev, main: 3 }));
                                 setScreen('main');
                             }
@@ -630,7 +607,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                             setSettings(updatedSettings);
                         }}
                         onBack={() => {
-                            // Save that we came from 'globalOverrides' menu (index 4)
                             setMenuSelections(prev => ({ ...prev, main: 4 }));
                             setScreen('main');
                         }}
@@ -731,13 +707,10 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
                         }}
                         onInstallFonts={() => {
                             setInstallingFonts(true);
-                            // Add a small delay to allow React to render the "Installing..." message
-                            // before the blocking execSync calls in installPowerlineFonts
                             setTimeout(() => {
                                 void installPowerlineFonts().then((result) => {
                                     setInstallingFonts(false);
                                     setFontInstallMessage(result.message);
-                                    // Refresh font status
                                     void checkPowerlineFontsAsync().then((asyncStatus) => {
                                         setPowerlineFontStatus(asyncStatus);
                                     });
@@ -781,7 +754,6 @@ export const App: React.FC<{ host: PiStatuslineHost }> = ({ host }) => {
 };
 
 export async function runTUI(host: PiStatuslineHost): Promise<void> {
-    // Clear the terminal before starting the TUI
     process.stdout.write('\x1b[2J\x1b[H');
     // pistatusline: resolve on exit so pi can take the terminal back.
     await render(<App host={host} />).waitUntilExit();

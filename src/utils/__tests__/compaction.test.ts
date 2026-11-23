@@ -18,7 +18,6 @@ import {
 import { parseJsonlLine } from '../jsonl-lines';
 import { getTranscriptAnalysis } from '../jsonl-metrics';
 
-/** Folds raw records through the same accumulator the transcript scan uses. */
 function computeCompactionStats(lines: readonly string[]): CompactionData {
     const stats = createCompactionStats();
     for (const line of lines) {
@@ -86,7 +85,6 @@ describe('computeCompactionStats', () => {
             JSON.stringify({ type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto', preTokens: 100000, postTokens: 30000 } }),
             JSON.stringify({ type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto', preTokens: 50000 } })
         ];
-        // (900000-20000) + (100000-30000) = 880000 + 70000 = 950000; third marker lacks postTokens -> contributes 0
         expect(computeCompactionStats(lines).tokensReclaimed).toBe(950000);
     });
 

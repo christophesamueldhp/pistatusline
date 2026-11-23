@@ -56,7 +56,6 @@ export class GitStatusWidget implements Widget {
 
         const status = getGitStatus(context);
 
-        // Hide if clean
         if (!status.staged && !status.unstaged && !status.untracked && !status.conflicts) {
             return null;
         }

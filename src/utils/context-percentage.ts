@@ -11,11 +11,6 @@ export interface ContextPercentageMetrics {
     windowSize: number | null;
 }
 
-/**
- * Calculate context window usage percentage and the denominator used for that
- * percentage. Returns null when neither status JSON nor transcript metrics can
- * provide context usage.
- */
 export function calculateContextPercentageMetrics(context: Pick<RenderContext, 'data' | 'tokenMetrics'>): ContextPercentageMetrics | null {
     const contextWindowMetrics = getContextWindowMetrics(context.data);
     const modelIdentifier = getModelContextIdentifier(context.data?.model);
@@ -38,9 +33,6 @@ export function calculateContextPercentageMetrics(context: Pick<RenderContext, '
     };
 }
 
-/**
- * Calculate context window usage percentage based on model's max tokens.
- */
 export function calculateContextPercentage(context: RenderContext): number {
     return calculateContextPercentageMetrics(context)?.usedPercentage ?? 0;
 }

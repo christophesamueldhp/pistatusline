@@ -5,11 +5,6 @@ import type {
     CustomCommandResult
 } from './custom-command';
 
-/**
- * Runs in a separate runtime so the synchronous renderer can enforce a streaming
- * output limit. Keep this function self-contained: its compiled source is passed
- * to the current runtime with `-e`, including in the single-file release bundle.
- */
 export function captureCustomCommand(
     spawnCommand: typeof spawn,
     request: CustomCommandRequest,
@@ -44,12 +39,11 @@ export function captureCustomCommand(
                     child.kill('SIGKILL');
                 }
             } catch {
-                // The command may already have exited.
             }
         }
 
-        // Descendants must not keep the capture runtime alive via inherited
-        // pipes after the deadline, an overflow, or a spawn failure.
+        // Child processes that inherit these pipes would keep the capture runtime
+        // alive after the deadline, an overflow or a spawn failure.
         child.stdin.destroy();
         child.stdout.destroy();
         child.unref();
@@ -74,7 +68,7 @@ export function captureCustomCommand(
         finish('[Error]', true);
     });
     child.stdin.on('error', (error: NodeJS.ErrnoException) => {
-        // Commands need not consume their stdin payload.
+        // A command may exit without reading its stdin, which raises EPIPE.
         if (error.code !== 'EPIPE') {
             finish('[Error]', true);
         }

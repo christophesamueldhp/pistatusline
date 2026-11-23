@@ -1,4 +1,3 @@
-// Central export file for all types
 export type {
     CustomKeybind,
     Widget,

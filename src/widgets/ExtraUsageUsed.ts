@@ -50,7 +50,6 @@ export class ExtraUsageUsedWidget implements Widget {
             return null;
         }
 
-        // extraUsageUsed is in cents
         const usedDollars = data.extraUsageUsed / 100;
         const formatted = formatUsageCurrency(usedDollars, data.extraUsageCurrency, format);
 

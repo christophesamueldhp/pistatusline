@@ -1,6 +1,5 @@
 import type { StatusJSON } from '../types/StatusJSON';
 
-/** The parts of a pi session entry the adapter reads (pi's SessionEntry union is wider). */
 export interface PiEntry {
     type: string;
     timestamp: string;
@@ -28,9 +27,7 @@ export interface PiSnapshot {
     model?: { id: string; name?: string };
     thinkingLevel?: string;
     context?: { tokens: number | null; contextWindow: number; percent: number | null };
-    /** Every entry in the session file, across branches: money spent on a branch stays spent. */
     allEntries: readonly PiEntry[];
-    /** Root-to-leaf entries of the conversation on screen. */
     branchEntries: readonly PiEntry[];
     sessionStartMs: number | null;
     nowMs: number;
@@ -84,20 +81,15 @@ function toTokenUsage(usage: PiUsage) {
 }
 
 /**
- * pi's rule for a reply whose usage measures the context: not failed or aborted, and with
- * usage reported (providers that send usage only at the end of a stream leave an aborted
- * reply at zero).
+ * pi's rule for a reply whose usage measures the context. The reply did not fail or abort, and
+ * it reports usage. Providers that send usage only at the end of a stream leave an aborted
+ * reply at zero.
  */
 function countsForContext(stopReason: string | undefined, usage: PiUsage): boolean {
     const total = finite(usage.input) + finite(usage.output) + finite(usage.cacheRead) + finite(usage.cacheWrite);
     return stopReason !== 'error' && stopReason !== 'aborted' && total > 0;
 }
 
-/**
- * pi session entries as the Claude Code transcript records ccstatusline's analysis reads:
- * user turns (speed intervals), assistant replies (tokens, context length), compaction
- * boundaries, and side LLM calls (summaries, cache warming) as sidechain usage.
- */
 export function toTranscriptRecords(entries: readonly PiEntry[]): unknown[] {
     const records: unknown[] = [];
     for (const entry of entries) {

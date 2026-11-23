@@ -60,7 +60,6 @@ describe('renderer separator collapse around empty widgets', () => {
 
     it('drops the trailing separator when the widget after it renders empty', () => {
         const widgets = [T('a'), SEP, T('b'), SEP, T('c')];
-        // 'b' renders empty; the separator after 'b' (before 'c') must be dropped
         const out = render(widgets, { 0: 'A', 2: '', 4: 'C' });
         expect((out.match(/\|/g) ?? []).length).toBe(1);
         expect(out).toContain('A');
@@ -91,21 +90,18 @@ describe('renderer separator collapse around empty widgets', () => {
 
     it('collapses multiple consecutive empty widgets into a single separator', () => {
         const widgets = [T('a'), SEP, T('b'), SEP, T('c'), SEP, T('d')];
-        // both 'b' and 'c' render empty
         const out = render(widgets, { 0: 'A', 2: '', 4: '', 6: 'D' });
         expect((out.match(/\|/g) ?? []).length).toBe(1);
     });
 
     it('suppresses a leading separator when no prior widget has rendered (existing behavior)', () => {
         const widgets = [T('a'), SEP, T('b')];
-        // 'a' renders empty; the separator after it should not emit
         const out = render(widgets, { 0: '', 2: 'B' });
         expect(out).not.toMatch(/\|/);
     });
 
     it('drops separators that follow a sequence of leading empty widgets', () => {
         const widgets = [T('a'), SEP, T('b'), SEP, T('c')];
-        // both 'a' and 'b' render empty; only 'c' has content
         const out = render(widgets, { 0: '', 2: '', 4: 'C' });
         expect(out).not.toMatch(/\|/);
         expect(out).toContain('C');
@@ -113,7 +109,6 @@ describe('renderer separator collapse around empty widgets', () => {
 
     it('removes trailing separator when the last widget renders empty', () => {
         const widgets = [T('a'), SEP, T('b')];
-        // 'b' renders empty
         const out = render(widgets, { 0: 'A', 2: '' });
         expect(out).not.toMatch(/\|/);
         expect(out).toContain('A');
@@ -126,13 +121,9 @@ describe('renderer separator collapse around empty widgets', () => {
     });
 
     it('does not affect the auto-separator (defaultSeparator) path', () => {
-        // The auto-separator path operates on the already-filtered `elements`
-        // array (line ~778) — empty widgets never reach it. This test locks in
-        // that the fix doesn't accidentally couple to the auto-separator logic.
         const widgets = [T('a'), T('b'), T('c')];
         const out = render(widgets, { 0: 'A', 1: '', 2: 'C' }, { defaultSeparator: '·' });
 
-        // With B empty, exactly one auto-added '·' should appear between A and C.
         expect((out.match(/·/g) ?? []).length).toBe(1);
         expect(out).toContain('A');
         expect(out).toContain('C');
@@ -153,18 +144,6 @@ describe('renderer separator collapse around empty widgets', () => {
     });
 
     it('lets a merge:no-padding widget glue to the next visible widget across an empty middle widget', () => {
-        // Layout: [A(merge:no-padding), B(empty), SEP, C].
-        //
-        // Without the fix, the SEP between B and C would emit (its walkback
-        // would skip past B's empty content and find A with content), so
-        // `elements` would be [A, SEP, C] and A's merge would not reach C
-        // (the separator sits between them in the element chain).
-        //
-        // With the fix, the SEP is suppressed because B (the immediate-prior
-        // non-separator) is empty. `elements` becomes [A, C] and the
-        // omitLeadingPadding check at the C step sees prevElem=A with
-        // merge:'no-padding' — A glues directly to C with no padding or
-        // separator between them.
         const widgets: WidgetItem[] = [
             { id: 'a', type: 'custom-text', merge: 'no-padding' },
             { id: 'b', type: 'custom-text' },
@@ -173,14 +152,10 @@ describe('renderer separator collapse around empty widgets', () => {
         ];
         const out = render(widgets, { 0: 'A', 1: '', 3: 'C' });
 
-        // No separator visible.
         expect(out).not.toMatch(/\|/);
-        // A and C are present and adjacent (only intra-widget content between
-        // them after stripping ANSI), confirming the merge took effect.
         const stripped = out.replace(/\[[0-9;]*m/g, '');
         expect(stripped).toContain('A');
         expect(stripped).toContain('C');
-        // No whitespace separator between A and C — they are directly adjacent.
         expect(stripped).toMatch(/A\s*C/);
         expect(stripped).not.toMatch(/A\s+\S+\s+C/);
     });

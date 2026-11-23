@@ -39,10 +39,9 @@ import {
 } from './usage';
 
 const DIST_DIR = path.dirname(fileURLToPath(import.meta.url));
-// Claude Code debounces statusline updates by 300 ms.
 const RENDER_DEBOUNCE_MS = 300;
 
-// pi runs on Node, but a compiled pi binary's execPath is pi itself; the editor needs Node.
+// pi runs on Node, but a compiled pi binary's execPath is pi itself, and the editor needs Node.
 function nodeExecutable(): string {
     return /^node(\.exe)?$/i.test(path.basename(process.execPath)) ? process.execPath : 'node';
 }
@@ -55,7 +54,6 @@ class RenderClient {
 
     constructor(private readonly onResult: (response: RenderResponse) => void) {}
 
-    /** Latest wins: a request made while the worker is busy replaces any queued one. */
     request(request: Omit<RenderRequest, 'id'>): void {
         this.pending = request;
         this.pump();
@@ -126,11 +124,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
         requestFooterRender?.();
     });
 
-    // The key or token pi uses for the provider (/login or its env variable), resolved through
-    // pi's auth store, which refreshes an expired OAuth token.
     const apiKey = (provider: string) => async () => (await ctx?.modelRegistry.getApiKeyForProvider(provider)) ?? null;
-    // Subscription usage exists only for an OAuth login; an API key bills per token. A login
-    // without a usable token (a failed refresh) throws, which PlanUsage shows as missing credentials.
     const oauthToken = (provider: string) => async () => {
         if (readStoredCredential(provider)?.type !== 'oauth') {
             return null;
@@ -229,7 +223,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
                             scheduleRender(0);
                         }
                         // Lines rendered for a wider terminal stay on screen until the new
-                        // render lands; never hand pi a line wider than the footer.
+                        // render lands. Never hand pi a line wider than the footer.
                         return [
                             ...lines.map(line => truncateStyledText(line, width)),
                             ...renderStatuses(footerData.getExtensionStatuses(), width, theme.fg('dim', ' · '))
@@ -301,9 +295,9 @@ export default function pistatusline(pi: ExtensionAPI): void {
             let failure: string | undefined;
             await context.ui.custom<void>((tui, _theme, _keybindings, done) => {
                 // Hand the terminal to the editor process without leaving copies of pi's screen
-                // behind. A plain stop() writes the current frame into the scrollback (fullscreen
-                // mode dumps it on leaving the alternate screen; regular mode parks the cursor
-                // under it), so every /pistatusline would leave one more footer after pi exits.
+                // behind. A plain stop() writes the current frame into the scrollback. Fullscreen
+                // mode dumps it on leaving the alternate screen, and regular mode parks the cursor
+                // under it. Every /pistatusline would then leave one more footer after pi exits.
                 // preserveScreen skips that, and the editor draws on its own alternate screen.
                 setImmediate(() => {
                     tui.stop({ preserveScreen: true });

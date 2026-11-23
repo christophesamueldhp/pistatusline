@@ -42,8 +42,6 @@ export class CustomSymbolWidget implements Widget {
         }];
     }
 
-    // The actual hiding happens in the renderer, which resolves the merge
-    // target's rendered output (see applyMergeTargetHiding)
     getHideableStates(): HideableState[] {
         return [MERGE_TARGET_HIDDEN_HIDEABLE_STATE];
     }
@@ -59,7 +57,6 @@ export class CustomSymbolWidget implements Widget {
 const CustomSymbolEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, onCancel }) => {
     const [symbol, setSymbol] = useState(widget.customSymbol ?? '');
 
-    // Helper to get grapheme segments if Intl.Segmenter is available
     const getFirstGrapheme = (str: string): string => {
         if (str.length === 0) {
             return '';
@@ -71,7 +68,6 @@ const CustomSymbolEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, o
             return segments[0]?.segment ?? '';
         }
 
-        // Fallback: just take first character
         return Array.from(str)[0] ?? '';
     };
 
@@ -83,7 +79,6 @@ const CustomSymbolEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, o
         } else if (key.backspace || key.delete) {
             setSymbol('');
         } else if (shouldInsertInput(input, key)) {
-            // Take only the first grapheme (handles multi-byte emojis correctly)
             const firstGrapheme = getFirstGrapheme(input);
             setSymbol(firstGrapheme);
         }

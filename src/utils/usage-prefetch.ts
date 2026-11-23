@@ -12,9 +12,6 @@ import {
     setUsageField
 } from './usage-types';
 
-// Non-model usage widgets/fields. The per-model ones (weekly-sonnet-usage,
-// weekly-opus-usage, ...) are derived below from WEEKLY_MODEL_USAGE_BUCKETS so
-// that adding a model bucket can't desync one of these tables from the others.
 const BASE_USAGE_WIDGET_TYPES = [
     'session-usage',
     'weekly-usage',
@@ -171,10 +168,6 @@ function epochSecondsToIsoString(epochSeconds: number | null | undefined): strin
     return new Date(epochSeconds * 1000).toISOString();
 }
 
-// A null legacy per-model bucket is ambiguous: migrated accounts can report it
-// alongside an authoritative weekly_scoped API limit. Keep it unset here so
-// prefetching checks the API before parseUsageApiResponse applies its legacy
-// null-bucket fallback.
 function getRateLimitBucketUsage(bucket: RateLimitPeriod | null | undefined): number | undefined {
     return bucket?.used_percentage ?? undefined;
 }
@@ -184,10 +177,6 @@ export function extractUsageDataFromRateLimits(rateLimits: StatusJSON['rate_limi
         return null;
     }
 
-    // rate_limits is keyed by fixed, schema-declared bucket names (five_hour,
-    // seven_day, seven_day_sonnet, ...); WEEKLY_MODEL_USAGE_BUCKETS.apiBucketKey
-    // values are those same names, kept in sync via the schema-parity test in
-    // usage-fetch.test.ts, so this lookup is safe despite the untyped index.
     const rateLimitBuckets = rateLimits as unknown as Record<string, RateLimitPeriod | null | undefined>;
 
     const usageData: UsageData = {
@@ -195,8 +184,6 @@ export function extractUsageDataFromRateLimits(rateLimits: StatusJSON['rate_limi
         sessionResetAt: epochSecondsToIsoString(rateLimits.five_hour?.resets_at),
         weeklyUsage: rateLimits.seven_day?.used_percentage ?? undefined,
         weeklyResetAt: epochSecondsToIsoString(rateLimits.seven_day?.resets_at)
-        // Note: rate_limits does not include extra_usage data (extraUsageEnabled, etc.).
-        // Those fields are only available via the API fetch path.
     };
 
     for (const bucket of WEEKLY_MODEL_USAGE_BUCKETS) {

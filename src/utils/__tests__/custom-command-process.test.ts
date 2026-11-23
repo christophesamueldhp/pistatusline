@@ -14,8 +14,8 @@ import {
 
 import type { CustomCommandResult } from '../custom-command';
 
-// Run outside the test process: other suites mock child_process globally under
-// Bun, and a mocked spawn cannot exercise the actual stdout resource boundary.
+// This runs outside the test process. Other suites mock child_process for the whole bun test
+// run, and a mocked spawn cannot test how the real stdout pipe closes.
 const require = createRequire(import.meta.url);
 const { execFileSync } = require('node:child_process') as typeof childProcess;
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-command-process-'));
@@ -139,7 +139,6 @@ for (const runtime of ['bun', 'node']) {
             const result = run('background', { timeoutMs: 200, argument: sentinelPath });
             expect(result.result).toEqual({ status: 'ok', stdout: 'EARLY' });
             expect(result.elapsed).toBeLessThan(1000);
-            // Let the deliberately surviving background job finish before cleanup.
             await new Promise(resolve => setTimeout(resolve, 1300));
             expect(fs.existsSync(sentinelPath)).toBe(true);
         });

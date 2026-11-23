@@ -10,8 +10,8 @@ import {
     probeWidthNative
 } from '../terminal-native';
 
-// A /proc/<pid>/stat line whose comm field contains spaces AND a close-paren.
-// Naive `split(' ')[3]` gets this wrong; fields must be read after the LAST ')'.
+// A /proc/<pid>/stat line whose comm field contains spaces and a closing parenthesis.
+// `split(' ')[3]` reads the wrong field, so fields must be read after the last ')'.
 const TRICKY_STAT = '4242 (my ) weird proc) S 1234 4242 4242 0 -1 4194304 100 0 0 0 5 3 0 0 20 0 1 0 999 0 0';
 
 function makeDeps(overrides: Partial<NativeProbeDeps> = {}): NativeProbeDeps {
@@ -44,7 +44,6 @@ describe('probeWidthNative', () => {
 
     it('walks ancestors and returns the width of the first tty found', () => {
         const deps = makeDeps({
-            // self -> 4242 -> 1234. Only 1234 owns a pty.
             readFileSync: (p: string) => {
                 if (p === `/proc/${process.pid}/stat`) {
                     return '1 (node) S 4242 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 1 0 0';

@@ -148,7 +148,6 @@ describe('CompactionCounterWidget', () => {
         });
 
         it('preview mode ignores live compactionData', () => {
-            // Verify preview short-circuits before reading compactionData
             expect(render({ isPreview: true, compactionData: { count: 99 } })).toBe('↻ 2');
         });
 

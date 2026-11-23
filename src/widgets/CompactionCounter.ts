@@ -44,10 +44,6 @@ const TOGGLE_TRIGGERS_ACTION = 'toggle-triggers';
 const SHOW_TRIGGERS_METADATA_KEY = 'showTriggers';
 const TOGGLE_RECLAIMED_ACTION = 'toggle-reclaimed';
 const SHOW_RECLAIMED_METADATA_KEY = 'showReclaimed';
-// Selectable metric. The default 'count' keeps the full composite display
-// (icon, count, optional trigger split, optional reclaimed). The other metrics
-// render just that one value as a raw number, so several instances can be
-// composed with custom separators/symbols into a layout like "2 · 1a 1m · ↓2M".
 const METRICS = ['count', 'auto', 'manual', 'unknown', 'reclaimed'] as const;
 type CompactionMetric = typeof METRICS[number];
 const DEFAULT_METRIC: CompactionMetric = 'count';
@@ -66,7 +62,6 @@ function getFormat(item: WidgetItem): CompactionCounterFormat {
     return (FORMATS as readonly string[]).includes(format ?? '') ? (format as CompactionCounterFormat) : DEFAULT_FORMAT;
 }
 
-// Only the icon format draws a glyph; the other two are text.
 function canUseNerdFont(item: WidgetItem): boolean {
     return getFormat(item) === DEFAULT_FORMAT;
 }
@@ -151,18 +146,6 @@ function formatCount(count: number, format: CompactionCounterFormat, icon: strin
     }
 }
 
-/**
- * Displays a count of context compaction events in the current session.
- *
- * Claude Code periodically compacts (summarizes) conversation context when it
- * approaches the context window limit. This widget tracks how many times
- * compaction has occurred by counting compact_boundary markers in the transcript.
- *
- * Shows ↻ N by default, including ↻ 0 before compaction occurs. Can be
- * configured to hide when count is 0. A `metric` selector switches it to emit a
- * single raw value (count, auto, manual, unknown, or reclaimed) so several
- * instances can be composed into a custom layout.
- */
 export class CompactionCounterWidget implements Widget {
     getDefaultColor(): string { return 'yellow'; }
     getDescription(): string { return 'Count of context compaction events in the current session.'; }
@@ -253,9 +236,6 @@ export class CompactionCounterWidget implements Widget {
             { key: 'v', label: '(v)alue', action: CYCLE_METRIC_ACTION }
         ];
 
-        // The format / glyph / trigger toggles only shape the composite 'count'
-        // display; a single-metric value just needs the metric selector, since
-        // hide-zero is one of the states in the shared hide checklist.
         if (item !== undefined && getMetric(item) !== DEFAULT_METRIC) {
             return keybinds;
         }

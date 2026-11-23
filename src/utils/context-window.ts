@@ -34,13 +34,6 @@ export interface UsageTokens {
     read: number;
 }
 
-/**
- * Coerces one usage object to non-negative finite counts.
- *
- * @remarks
- * Shared by the live status JSON and the transcript fallback so a malformed
- * count cannot make the two paths disagree about the same session.
- */
 export function parseUsageTokens(usage: UsageTokenObject): UsageTokens {
     return {
         input: toFiniteNonNegativeNumber(usage.input_tokens) ?? 0,
@@ -50,7 +43,6 @@ export function parseUsageTokens(usage: UsageTokenObject): UsageTokens {
     };
 }
 
-/** Tokens the model re-reads on the next turn: fresh input plus both cache halves. */
 export function contextLengthFromUsageTokens(tokens: UsageTokens): number {
     return tokens.input + tokens.creation + tokens.read;
 }
@@ -173,9 +165,6 @@ export interface TurnCacheTokens {
     input: number;
 }
 
-// Cache read/creation/input tokens for the most recent turn ("last action"),
-// taken directly from Claude Code's live status JSON (context_window.current_usage).
-// Returns null when the object form of current_usage is unavailable.
 export function getContextWindowTurnCacheTokens(data?: StatusJSON): TurnCacheTokens | null {
     const usage = data?.context_window?.current_usage;
     if (!usage || typeof usage !== 'object') {

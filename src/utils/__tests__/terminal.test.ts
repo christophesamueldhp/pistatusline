@@ -21,11 +21,9 @@ vi.mock('child_process', () => ({
     spawnSync: vi.fn()
 }));
 
-// vi.spyOn on the module namespace rather than vi.mock('../terminal-width-cache', ...):
-// a factory-based vi.mock on a shared module is not reliably file-scoped under this
-// test runner and leaked into terminal-width-cache.test.ts's own (unmocked) import of
-// the same module when both files ran in the same test invocation, silently replacing
-// the real readCachedWidth/writeCachedWidth with no-ops there too.
+// This file uses vi.spyOn on the module namespace, not vi.mock('../terminal-width-cache', ...).
+// Under bun test, a factory vi.mock applies to every test file in the same run, so it replaced
+// readCachedWidth and writeCachedWidth with no-ops in terminal-width-cache.test.ts as well.
 
 describe('terminal utils', () => {
     const mockExecFileSync = execFileSync as unknown as {
@@ -35,10 +33,6 @@ describe('terminal utils', () => {
         mockReturnValueOnce: (value: string) => void;
     };
 
-    // process.platform is read by the width probe. Pin it with defineProperty
-    // and restore after each test; vi.spyOn on the getter does not reliably
-    // re-apply across tests. Probing is disabled on win32, so the
-    // ancestor-walk/stty/tput tests pin POSIX and the win32 tests pin win32.
     const ORIGINAL_PLATFORM = process.platform;
     const setPlatform = (value: NodeJS.Platform): void => {
         Object.defineProperty(process, 'platform', { value, configurable: true, writable: true, enumerable: true });
@@ -120,7 +114,7 @@ describe('terminal utils', () => {
 
     it('falls back through stty variants when the first form returns no value', () => {
         pinPosixPlatform();
-        // Simulates BSD/macOS, where `stty -F` exits with an error; `stty -f` succeeds.
+        // Simulates BSD and macOS, where `stty -F` exits with an error and `stty -f` succeeds.
         mockExecFileSync.mockImplementation((file: string, args: string[]) => {
             if (file === 'ps' && args.join(' ') === `-o ppid= -p ${process.pid}`) {
                 return '1234\n';
@@ -318,9 +312,6 @@ describe('terminal utils', () => {
         expect(ppidProbes).toHaveLength(1);
     });
 
-    // Regression test for the 113-spawn bug: Claude Code spawns the statusline with
-    // no TTY, so the probe returns null. Callers use `context.terminalWidth ??
-    // getTerminalWidth()`, so a memo that does not cache null re-probes forever.
     it('probes only once when NO tty is found (null is memoized)', () => {
         pinPosixPlatform();
         mockExecFileSync.mockImplementation(() => {
@@ -344,17 +335,12 @@ describe('terminal utils', () => {
         expect(getTerminalWidth()).toBe(150);
 
         process.env.CCSTATUSLINE_WIDTH = '175';
-        expect(getTerminalWidth()).toBe(150); // memoized, not re-read
+        expect(getTerminalWidth()).toBe(150);
 
         resetTerminalWidthCache();
         expect(getTerminalWidth()).toBe(175);
     });
 
-    // Wiring coverage for the sessionId/ttlSeconds L2-cache integration: unlike
-    // the tests above (which never pass options), these mock ../terminal-width-cache
-    // directly and assert on the exact arguments getTerminalWidth calls it with.
-    // A wiring regression here (wrong args, wrong condition) would pass every
-    // other test in this suite while silently breaking the cross-process cache.
     describe('getTerminalWidth session cache wiring', () => {
         function spyOnReadCachedWidth() {
             return vi.spyOn(terminalWidthCache, 'readCachedWidth');

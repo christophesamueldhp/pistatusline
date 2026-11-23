@@ -220,7 +220,6 @@ describe('jsonl line streaming', () => {
     });
 });
 
-/** Indexed access that fails loudly, since the config forbids non-null assertions. */
 function nth<T>(items: readonly T[], index: number): T {
     const item = items[index];
     if (item === undefined) {

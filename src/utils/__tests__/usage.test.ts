@@ -206,7 +206,6 @@ describe('usage window helpers', () => {
     });
 
     it('uses the supplied locale to choose the timezone abbreviation', () => {
-        // ja-JP returns 'JST' for Asia/Tokyo, en-US returns 'GMT+9'
         const ja = formatUsageResetAt('2026-04-27T10:00:00.000Z', false, 'Asia/Tokyo', 'ja-JP');
         expect(ja).toBe('2026-04-27 19:00 JST');
 
@@ -220,9 +219,6 @@ describe('usage window helpers', () => {
     });
 
     it('still produces a valid output even with a permissive/unknown locale', () => {
-        // Intl.DateTimeFormat is lenient about locale strings (canonicalizes
-        // or falls back to system default). We just verify the output shape
-        // is intact — locale handling is delegated to the runtime ICU data.
         const result = formatUsageResetAt('2026-04-27T10:00:00.000Z', false, 'Asia/Tokyo', 'xx-XX');
         expect(result).toMatch(/^2026-04-27 19:00 \S+$/);
     });

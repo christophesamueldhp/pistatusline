@@ -3,25 +3,11 @@ import type {
     UsageError
 } from '../utils/usage-types';
 
-/**
- * UsageData, or the raw Anthropic usage response: ccstatusline's parser lives in the render
- * worker because its module graph (Claude settings, config, widgets) is too heavy for pi's
- * extension loader.
- */
 export type PlanUsageData = UsageData & { anthropicJson?: string };
 
-/**
- * Provider-neutral plan usage for ccstatusline's usage widgets (session-usage, weekly-usage,
- * reset timers, ...). Each source polls one billing plan and adapts it to ccstatusline's
- * UsageData. Only the active model's provider counts: another plan's usage says nothing about
- * the model in use. A provider without a plan (no source, or a pay-per-token API key) leaves the
- * widgets out; a plan login whose credential cannot be resolved shows ccstatusline's
- * "no credentials" state.
- */
 export interface UsageSource {
     readonly providers: readonly string[];
     readonly refreshMs: number;
-    /** null: the credential in use has no plan. Rejects when a plan credential cannot be resolved. */
     fetch(): Promise<PlanUsageData | null>;
 }
 
@@ -32,11 +18,10 @@ function errorFor(error: unknown): UsageError {
     return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'api-error';
 }
 
-/** Claude subscription usage — the endpoint ccstatusline reads, with pi's Anthropic OAuth login. */
 export function anthropicUsageSource(getOAuthToken: () => Promise<string | null>): UsageSource {
     return {
         providers: ['anthropic'],
-        refreshMs: 180_000, // ccstatusline's usage cache age
+        refreshMs: 180_000,
         async fetch() {
             const token = await getOAuthToken();
             if (!token) {
@@ -61,10 +46,6 @@ export function anthropicUsageSource(getOAuthToken: () => Promise<string | null>
 
 interface UsageRequest { url: string; headers: Record<string, string> }
 
-/**
- * A plan-usage endpoint that answers JSON. `request` resolves the credential and returns
- * null without one, so providers the user never logged in to make no requests.
- */
 function jsonUsageSource(
     providers: readonly string[],
     refreshMs: number,
@@ -98,7 +79,7 @@ function record(value: unknown): JsonRecord | undefined {
     return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : undefined;
 }
 
-/** Numbers, or numeric strings (Kimi sends its counts as strings). */
+/** Numbers, or numeric strings, because Kimi sends its counts as strings. */
 function num(value: unknown): number | undefined {
     const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
     return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined;
@@ -108,7 +89,6 @@ function clampPercent(value: number): number {
     return Math.min(100, Math.max(0, value));
 }
 
-/** ISO strings (nanosecond fractions trimmed), epoch seconds or epoch milliseconds → ISO. */
 function isoTime(value: unknown): string | undefined {
     let ms: number | undefined;
     if (typeof value === 'string' && Number.isNaN(Number(value))) {
@@ -146,10 +126,6 @@ function goWindow(window: OpencodeGoWindow | undefined): { percent: number; rese
     return { percent: window?.status === 'rate-limited' ? 100 : Math.max(0, percent), resetsAt };
 }
 
-/**
- * OpenCode Go usage response → UsageData: the rolling 5-hour window is ccstatusline's
- * "session", weekly is weekly. The monthly window has no ccstatusline widget.
- */
 export function parseOpencodeGoUsage(json: unknown): UsageData | null {
     const usage = (json as { usage?: Record<string, OpencodeGoWindow> } | null)?.usage;
     const rolling = goWindow(usage?.rolling);
@@ -163,7 +139,6 @@ export function parseOpencodeGoUsage(json: unknown): UsageData | null {
     };
 }
 
-/** OpenCode Go plan usage from its usage endpoint, with the API key pi already uses for the provider. */
 export function opencodeGoUsageSource(getApiKey: () => Promise<string | null>): UsageSource {
     return jsonUsageSource(['opencode-go'], 60_000, async () => {
         const key = await getApiKey();
@@ -174,8 +149,8 @@ export function opencodeGoUsageSource(getApiKey: () => Promise<string | null>): 
 const ONE_DAY_S = 86_400;
 
 /**
- * ChatGPT (Codex) plan usage → UsageData. Windows are told apart by their length: a plan can
- * send the weekly window as the primary one, or only one of them.
+ * Converts ChatGPT plan usage from Codex to UsageData. Windows are told apart by their length,
+ * because a plan can send the weekly window as the primary one, or send only one window.
  */
 export function parseCodexUsage(json: unknown): UsageData | null {
     const limits = record(record(json)?.rate_limit);
@@ -199,7 +174,6 @@ export function parseCodexUsage(json: unknown): UsageData | null {
     return toUsageData(session, weekly);
 }
 
-/** ChatGPT plan usage for pi's `openai-codex` login, from the endpoint the Codex CLI reads. */
 export function codexUsageSource(getCredential: () => Promise<{ token: string; accountId?: string } | null>): UsageSource {
     return jsonUsageSource(['openai-codex'], 60_000, async () => {
         const credential = await getCredential();
@@ -223,7 +197,6 @@ function kimiResetAt(data: JsonRecord): string | undefined {
     return isoTime(data.reset_time ?? data.resetTime ?? data.reset_at ?? data.resetAt);
 }
 
-/** `{limit, used | remaining, resetTime}` with string counts. */
 function kimiCountWindow(data: JsonRecord | undefined): UsageWindow | undefined {
     const limit = num(data?.limit);
     const used = num(data?.used) ?? (limit === undefined ? undefined : limit - (num(data?.remaining) ?? limit));
@@ -233,16 +206,11 @@ function kimiCountWindow(data: JsonRecord | undefined): UsageWindow | undefined 
     return { percent: clampPercent(used / limit * 100), resetAt: kimiResetAt(data) };
 }
 
-/** `{used_ratio: 0..1, reset_time}`, Kimi's newer usage pools. */
 function kimiRatioWindow(data: JsonRecord | undefined): UsageWindow | undefined {
     const ratio = num(data?.used_ratio);
     return data && ratio !== undefined ? { percent: clampPercent(ratio * 100), resetAt: kimiResetAt(data) } : undefined;
 }
 
-/**
- * Kimi For Coding usage → UsageData: the 5-hour entry of `limits` (or the `limit_5h` pool) is the
- * session window, `usage` (or the `limit_7d` pool) the weekly quota.
- */
 export function parseKimiUsage(json: unknown): UsageData | null {
     const body = record(json);
     const fiveHour = (Array.isArray(body?.limits) ? body.limits : []).map(record).find((item) => {
@@ -256,7 +224,6 @@ export function parseKimiUsage(json: unknown): UsageData | null {
     return toUsageData(session, weekly);
 }
 
-/** Kimi For Coding usage, with the Authorization header pi builds for `kimi-coding`. */
 export function kimiUsageSource(getAuthorization: () => Promise<string | null>): UsageSource {
     return jsonUsageSource(['kimi-coding'], 60_000, async () => {
         const authorization = await getAuthorization();
@@ -264,11 +231,10 @@ export function kimiUsageSource(getAuthorization: () => Promise<string | null>):
     }, parseKimiUsage);
 }
 
-// Z.ai quota units: 3 = hours (the 5-hour window), 6 = weeks.
 const ZAI_UNIT_HOURS = 3;
 const ZAI_UNIT_WEEKS = 6;
 
-/** GLM Coding Plan quota → UsageData, from its token limits (TIME_LIMIT is the MCP quota). */
+/** Converts the GLM Coding Plan token limits to UsageData. TIME_LIMIT is the MCP quota, not a token window. */
 export function parseZaiUsage(json: unknown): UsageData | null {
     const body = record(json);
     if (body?.success !== true) {
@@ -285,7 +251,7 @@ export function parseZaiUsage(json: unknown): UsageData | null {
 
 const ZAI_HOSTS = { 'zai': 'https://api.z.ai', 'zai-coding-cn': 'https://open.bigmodel.cn' } as const;
 
-/** GLM Coding Plan usage; the endpoint takes the raw API key, without "Bearer". */
+/** Fetches GLM Coding Plan usage. The endpoint takes the raw API key, without "Bearer". */
 export function zaiUsageSource(provider: keyof typeof ZAI_HOSTS, getApiKey: () => Promise<string | null>): UsageSource {
     return jsonUsageSource([provider], 60_000, async () => {
         const key = await getApiKey();
@@ -293,21 +259,21 @@ export function zaiUsageSource(provider: keyof typeof ZAI_HOSTS, getApiKey: () =
     }, parseZaiUsage);
 }
 
-// current_*_status: 2 = exhausted, 3 = unlimited.
 const MINIMAX_EXHAUSTED = 2;
 const MINIMAX_UNLIMITED = 3;
 
 function minimaxWindow(bucket: JsonRecord, prefix: 'interval' | 'weekly', end: unknown): UsageWindow | undefined {
     const status = num(bucket[`current_${prefix}_status`]);
     const remaining = num(bucket[`current_${prefix}_remaining_percent`]);
-    // The status outranks the percentage: an exhausted window may omit it or keep a stale one.
+    // The status outranks the percentage, because an exhausted window may omit it or keep a stale one.
     const percent = status === MINIMAX_EXHAUSTED ? 100 : remaining === undefined ? undefined : 100 - remaining;
     return percent === undefined ? undefined : { percent: clampPercent(percent), resetAt: isoTime(end) };
 }
 
 /**
- * MiniMax Token Plan remains → UsageData, from the plan-wide `general` bucket (or the first
- * bucket in the plan). Counts are left alone: `*_usage_count` means "remaining" in some regions.
+ * Converts MiniMax Token Plan remains to UsageData, from the plan-wide `general` bucket, or else
+ * the first bucket in the plan. Counts are not used, because `*_usage_count` means "remaining"
+ * in some regions.
  */
 export function parseMinimaxUsage(json: unknown): UsageData | null {
     const body = record(record(json)?.data) ?? record(json);
@@ -326,7 +292,6 @@ export function parseMinimaxUsage(json: unknown): UsageData | null {
 
 const MINIMAX_HOSTS = { 'minimax': 'https://api.minimax.io', 'minimax-cn': 'https://api.minimaxi.com' } as const;
 
-/** MiniMax Token Plan usage, with the API key pi uses for the provider. */
 export function minimaxUsageSource(provider: keyof typeof MINIMAX_HOSTS, getApiKey: () => Promise<string | null>): UsageSource {
     return jsonUsageSource([provider], 60_000, async () => {
         const key = await getApiKey();
@@ -335,8 +300,8 @@ export function minimaxUsageSource(provider: keyof typeof MINIMAX_HOSTS, getApiK
 }
 
 /**
- * SuperGrok weekly credits → UsageData (weekly only). A fresh period leaves the percentage out
- * until something is used.
+ * Converts SuperGrok weekly credits to UsageData, which has only the weekly window. A fresh
+ * period leaves the percentage out until something is used.
  */
 export function parseXaiUsage(json: unknown): UsageData | null {
     const config = record(record(json)?.config);
@@ -349,7 +314,6 @@ export function parseXaiUsage(json: unknown): UsageData | null {
     return percent === undefined ? null : toUsageData(undefined, { percent: clampPercent(percent), resetAt });
 }
 
-/** SuperGrok usage for pi's xAI OAuth login, from the Grok CLI's billing endpoint. */
 export function xaiUsageSource(getOAuthToken: () => Promise<string | null>): UsageSource {
     return jsonUsageSource(['xai'], 60_000, async () => {
         const token = await getOAuthToken();
@@ -363,7 +327,6 @@ export function xaiUsageSource(getOAuthToken: () => Promise<string | null>): Usa
 }
 
 export class PlanUsage {
-    // A source missing here has not answered yet.
     private readonly data = new Map<UsageSource, PlanUsageData | null>();
     private readonly timers = new Map<UsageSource, ReturnType<typeof setTimeout>>();
     private readonly polling = new Set<UsageSource>();
@@ -372,7 +335,6 @@ export class PlanUsage {
 
     constructor(private readonly sources: readonly UsageSource[], private readonly onChange: () => void) {}
 
-    /** Enables polling; called only once a configured line actually has a usage widget. */
     start(): void {
         if (this.started || this.disposed) {
             return;
@@ -381,7 +343,6 @@ export class PlanUsage {
         this.onChange();
     }
 
-    /** Usage of the active provider's plan. A source is polled from the first time its provider is active. */
     get(activeProvider: string | undefined): PlanUsageData | null {
         const active = this.sources.find(source => activeProvider !== undefined && source.providers.includes(activeProvider));
         if (active && this.started && !this.polling.has(active)) {
@@ -416,10 +377,6 @@ export class PlanUsage {
     }
 }
 
-/**
- * null when the active provider has no plan (no source, or a credential without one), so the
- * widgets are left out; `{}` while its source has not answered yet.
- */
 export function selectUsage(
     entries: readonly { providers: readonly string[]; data: PlanUsageData | null | undefined }[],
     activeProvider: string | undefined

@@ -53,35 +53,27 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
     const powerlineEnabled = settings.powerline.enabled;
 
     const colorableWidgets = widgets.filter((widget) => {
-        // Include separators only if showSeparators is true
         if (widget.type === 'separator') {
             return showSeparators;
         }
-        // Use the widget's supportsColors method
         const widgetInstance = getWidget(widget.type);
-        // Include unknown widgets (they might support colors, we just don't know)
         return widgetInstance ? widgetInstance.supportsColors(widget) : true;
     });
     const [highlightedItemId, setHighlightedItemId] = useState(colorableWidgets[0]?.id ?? null);
     const [editingBackground, setEditingBackground] = useState(false);
 
-    // Handle keyboard input
     const hasNoItems = colorableWidgets.length === 0;
     useInput((input, key) => {
-        // If no items, any key goes back
         if (hasNoItems) {
             onBack();
             return;
         }
 
-        // Skip input handling when confirmation is active - let ConfirmDialog handle it
         if (showClearConfirm) {
             return;
         }
 
-        // Handle hex input mode
         if (hexInputMode) {
-            // Disable arrow keys in input mode
             if (key.upArrow || key.downArrow) {
                 return;
             }
@@ -89,7 +81,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 setHexInputMode(false);
                 setHexInput('');
             } else if (key.return) {
-                // Validate and apply the hex color
                 if (hexInput.length === 6) {
                     const hexColor = `hex:${hexInput}`;
                     const selectedWidget = colorableWidgets.find(widget => widget.id === highlightedItemId);
@@ -103,7 +94,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             } else if (key.backspace || key.delete) {
                 setHexInput(hexInput.slice(0, -1));
             } else if (shouldInsertInput(input, key) && hexInput.length < 6) {
-                // Only accept hex characters (0-9, A-F, a-f)
                 const upperInput = input.toUpperCase();
                 if (/^[0-9A-F]$/.test(upperInput)) {
                     setHexInput(hexInput + upperInput);
@@ -112,9 +102,7 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             return;
         }
 
-        // Handle ansi256 input mode
         if (ansi256InputMode) {
-            // Disable arrow keys in input mode
             if (key.upArrow || key.downArrow) {
                 return;
             }
@@ -122,7 +110,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 setAnsi256InputMode(false);
                 setAnsi256Input('');
             } else if (key.return) {
-                // Validate and apply the ansi256 color
                 const code = parseInt(ansi256Input, 10);
                 if (!isNaN(code) && code >= 0 && code <= 255) {
                     const ansiColor = `ansi256:${code}`;
@@ -140,11 +127,9 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             } else if (key.backspace || key.delete) {
                 setAnsi256Input(ansi256Input.slice(0, -1));
             } else if (shouldInsertInput(input, key) && ansi256Input.length < 3) {
-                // Only accept numeric characters (0-9)
                 if (/^[0-9]$/.test(input)) {
                     const newInput = ansi256Input + input;
                     const code = parseInt(newInput, 10);
-                    // Only allow if it won't exceed 255
                     if (code <= 255) {
                         setAnsi256Input(newInput);
                     }
@@ -153,7 +138,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             return;
         }
 
-        // Handle gradient selection mode
         if (gradientMode) {
             const exitGradient = () => {
                 setGradientMode(false);
@@ -170,7 +154,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 exitGradient();
             };
 
-            // Custom start/end hex entry
             if (gradientCustomStep) {
                 if (key.escape) {
                     setGradientCustomStep(null);
@@ -196,7 +179,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 return;
             }
 
-            // Preset list navigation (last item is the "Custom" entry)
             const total = GRADIENT_PRESET_NAMES.length + 1;
             if (key.escape) {
                 exitGradient();
@@ -216,12 +198,10 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             return;
         }
 
-        // Ignore number keys to prevent SelectInput numerical navigation
         if (input && /^[0-9]$/.test(input)) {
             return;
         }
 
-        // Normal keyboard handling when there are items
         if (key.escape) {
             if (editingBackground) {
                 setEditingBackground(false);
@@ -229,19 +209,16 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 onBack();
             }
         } else if (input === 'h' || input === 'H') {
-            // Enter hex input mode (only in truecolor mode)
             if (highlightedItemId && highlightedItemId !== 'back' && settings.colorLevel === 3) {
                 setHexInputMode(true);
                 setHexInput('');
             }
         } else if (input === 'a' || input === 'A') {
-            // Enter ansi256 input mode (only in 256 color mode)
             if (highlightedItemId && highlightedItemId !== 'back' && settings.colorLevel === 2) {
                 setAnsi256InputMode(true);
                 setAnsi256Input('');
             }
         } else if (input === 'g' || input === 'G') {
-            // Enter gradient selection mode (foreground only, needs a real color palette)
             if (highlightedItemId && highlightedItemId !== 'back' && !editingBackground && settings.colorLevel >= 2) {
                 setGradientMode(true);
                 setGradientIndex(0);
@@ -250,11 +227,8 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 setGradientHexInput('');
             }
         } else if ((input === 's' || input === 'S') && !key.ctrl) {
-            // Toggle show separators (only if not in powerline mode and no default separator)
             if (!settings.powerline.enabled && !settings.defaultSeparator) {
                 setShowSeparators(!showSeparators);
-                // The highlighted item ID will be maintained, and we'll recalculate
-                // the initial index when rendering the SelectInput
             }
         } else if (input === 'f' || input === 'F') {
             if (colorableWidgets.length > 0) {
@@ -262,7 +236,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             }
         } else if (input === 'b' || input === 'B') {
             if (highlightedItemId && highlightedItemId !== 'back') {
-                // Toggle bold for the highlighted item
                 const selectedWidget = colorableWidgets.find(widget => widget.id === highlightedItemId);
                 if (selectedWidget) {
                     const newItems = toggleWidgetBold(widgets, selectedWidget.id);
@@ -271,7 +244,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             }
         } else if (input === 'd' || input === 'D') {
             if (highlightedItemId && highlightedItemId !== 'back') {
-                // Cycle dim for the highlighted item: off -> whole -> parens -> off
                 const selectedWidget = colorableWidgets.find(widget => widget.id === highlightedItemId);
                 if (selectedWidget) {
                     const newItems = cycleWidgetDim(widgets, selectedWidget.id);
@@ -280,7 +252,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             }
         } else if (input === 'r' || input === 'R') {
             if (highlightedItemId && highlightedItemId !== 'back') {
-                // Reset all styling (color, background, and bold) for the highlighted item
                 const selectedWidget = colorableWidgets.find(widget => widget.id === highlightedItemId);
                 if (selectedWidget) {
                     const newItems = resetWidgetStyling(widgets, selectedWidget.id);
@@ -288,10 +259,8 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 }
             }
         } else if (input === 'c' || input === 'C') {
-            // Show clear all confirmation
             setShowClearConfirm(true);
         } else if (key.leftArrow || key.rightArrow) {
-            // Cycle through colors with arrow keys
             if (highlightedItemId && highlightedItemId !== 'back') {
                 const selectedWidget = colorableWidgets.find(widget => widget.id === highlightedItemId);
                 if (selectedWidget) {
@@ -336,19 +305,14 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         return widgetImpl ? widgetImpl.getDisplayName() : `Unknown: ${widget.type}`;
     };
 
-    // Color list for cycling
-    // Get available colors from colors.ts
     const colorOptions = getAvailableColorsForUI();
     const colors = colorOptions.map(c => c.value || '');
 
-    // For background, get background colors
     const bgColorOptions = getAvailableBackgroundColorsForUI();
     const bgColors = bgColorOptions.map(c => c.value || '');
 
-    // Create menu items with colored labels
     const menuItems = colorableWidgets.map((widget, index) => {
         const label = `${index + 1}: ${getItemLabel(widget)}`;
-        // Apply both foreground and background colors
         const level = getColorLevelString(settings.colorLevel);
         let defaultColor = 'white';
         if (widget.type !== 'separator' && widget.type !== 'flex-separator') {
@@ -369,19 +333,17 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         if (selected.value === 'back') {
             onBack();
         }
-        // Enter no longer cycles colors - use left/right arrow keys instead
     };
 
     const handleHighlight = (item: { value: string }) => {
         setHighlightedItemId(item.value);
     };
 
-    // Get current color for highlighted item
     const selectedWidget = highlightedItemId && highlightedItemId !== 'back'
         ? colorableWidgets.find(widget => widget.id === highlightedItemId)
         : null;
     const currentColor = editingBackground
-        ? (selectedWidget?.backgroundColor ?? '')  // Empty string for 'none'
+        ? (selectedWidget?.backgroundColor ?? '')
         : (selectedWidget ? (selectedWidget.color ?? (() => {
             if (selectedWidget.type !== 'separator' && selectedWidget.type !== 'flex-separator') {
                 const widgetImpl = getWidget(selectedWidget.type);
@@ -399,7 +361,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         if (!currentColor || currentColor === '') {
             colorDisplay = chalk.gray('(no background)');
         } else {
-            // Determine display name based on format
             let displayName;
             if (currentColor.startsWith('ansi256:')) {
                 displayName = `ANSI ${currentColor.substring(8)}`;
@@ -410,7 +371,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 displayName = colorOption ? colorOption.name : currentColor;
             }
 
-            // Apply the color using our applyColors function with the current colorLevel
             const level = getColorLevelString(settings.colorLevel);
             colorDisplay = applyColors(` ${displayName} `, undefined, currentColor, false, level);
         }
@@ -418,7 +378,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         if (!currentColor || currentColor === '') {
             colorDisplay = chalk.gray('(default)');
         } else {
-            // Determine display name based on format
             let displayName;
             if (currentColor.startsWith('ansi256:')) {
                 displayName = `ANSI ${currentColor.substring(8)}`;
@@ -436,7 +395,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                 displayName = colorOption ? colorOption.name : currentColor;
             }
 
-            // Apply the color using our applyColors function with the current colorLevel
             const level = getColorLevelString(settings.colorLevel);
             colorDisplay = applyColors(displayName, currentColor, undefined, false, level);
         }
@@ -447,7 +405,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         selectedWidget?.dim === 'parens' ? '[DIM ()]' : null
     ].filter(indicator => indicator !== null).join(' ');
 
-    // Gradient selection mode takes over the whole view
     if (gradientMode) {
         const level = getColorLevelString(settings.colorLevel);
         const widgetName = selectedWidget ? getItemLabel(selectedWidget) : '';
@@ -504,7 +461,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         );
     }
 
-    // Show confirmation dialog if clearing all colors
     if (showClearConfirm) {
         return (
             <Box flexDirection='column'>
@@ -533,9 +489,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
         );
     }
 
-    // Check for global overrides
-    // Note: When powerline is enabled, background override doesn't affect the display
-    // since powerline uses item-specific backgrounds for segments
     const hasGlobalFgOverride = !!settings.overrideForegroundColor;
     const hasGlobalBgOverride = !!settings.overrideBackgroundColor && !powerlineEnabled;
     const globalOverrideMessage = hasGlobalFgOverride && hasGlobalBgOverride
@@ -624,7 +577,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
             )}
             <Box marginTop={1}>
                 {(hexInputMode || ansi256InputMode) ? (
-                    // Static list when in input mode - no keyboard interaction
                     <Box flexDirection='column'>
                         {menuItems.map(item => (
                             <Text
@@ -638,7 +590,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                         ))}
                     </Box>
                 ) : (
-                    // Interactive SelectInput when not in input mode
                     <SelectInput
                         key={`${showSeparators}-${highlightedItemId}`}
                         items={menuItems}
@@ -649,8 +600,6 @@ export const ColorMenu: React.FC<ColorMenuProps> = ({ widgets, lineIndex, settin
                             <Text>{isSelected ? '▶' : '  '}</Text>
                         )}
                         itemComponent={({ isSelected, label }) => (
-                            // The label already has ANSI codes applied via applyColors()
-                            // We need to pass it directly as a single Text child to preserve the codes
                             <Text>{` ${label}`}</Text>
                         )}
                     />

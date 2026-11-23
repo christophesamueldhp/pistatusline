@@ -65,7 +65,6 @@ const LineSelector: React.FC<LineSelectorProps> = ({
     };
 
     const deleteLine = (lineIndex: number) => {
-    // Don't allow deleting the last remaining line
         if (localLines.length <= 1) {
             return;
         }
@@ -75,7 +74,6 @@ const LineSelector: React.FC<LineSelectorProps> = ({
         onLinesUpdate(newLines);
     };
 
-    // Check if powerline theme is managing colors
     const powerlineEnabled = settings ? settings.powerline.enabled : false;
     const powerlineTheme = settings ? settings.powerline.theme : undefined;
     const isThemeManaged
@@ -84,13 +82,11 @@ const LineSelector: React.FC<LineSelectorProps> = ({
             && powerlineTheme
             && powerlineTheme !== 'custom';
 
-    // Handle keyboard input
     useInput((input, key) => {
         if (showDeleteDialog) {
             return;
         }
 
-        // If theme-managed and blocking is enabled, any key goes back
         if (isThemeManaged) {
             onBack();
             return;
@@ -148,7 +144,6 @@ const LineSelector: React.FC<LineSelectorProps> = ({
         }
     });
 
-    // Show powerline theme warning if applicable
     if (isThemeManaged) {
         return (
             <Box flexDirection='column'>

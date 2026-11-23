@@ -39,14 +39,8 @@ interface PersistentGitCache {
 const DEFAULT_GIT_CACHE_TTL_SECONDS = 5;
 const GIT_CACHE_SCHEMA_VERSION = 1 as const;
 
-// Matches the timeout used by every other external CLI call site: a git
-// invocation that blocks (slow network filesystem, hung credential helper)
-// must not freeze the statusline process - the error path below caches null
-// and the widget renders empty instead.
 const GIT_COMMAND_TIMEOUT_MS = 5_000;
 
-// In-process cache keeps cwd in the key; the persistent cache stores cwd once
-// at the file level and keys entries by command.
 const gitCommandCache = new Map<string, GitCacheEntry>();
 
 function getCacheDir(): string {
@@ -111,7 +105,6 @@ function discoverGitDir(startDir: string): string | null {
                 return readGitDirFile(gitPath);
             }
         } catch {
-            // Keep walking up.
         }
 
         const parent = path.dirname(current);
@@ -215,25 +208,15 @@ function readPersistentCache(cachePath: string): PersistentGitCache | null {
 }
 
 function writePersistentCache(cachePath: string, cache: PersistentGitCache): void {
-    // Stable temp name: a held handle (e.g. a Windows virus scanner or sync
-    // client) can make the rename and the cleanup unlink both fail with
-    // EPERM, so a unique name would leak one file per write. Reusing one
-    // name bounds that to a single orphan per repo that the next write
-    // truncates. Costs: while the handle is held, writes for that repo fail
-    // (just extra cache misses), and a concurrent writer can tear the
-    // renamed-over cache file - readPersistentCache treats malformed JSON
-    // as a miss either way.
     const tempPath = `${cachePath}.tmp`;
     try {
         fs.mkdirSync(path.dirname(cachePath), { recursive: true });
         fs.writeFileSync(tempPath, JSON.stringify(cache), 'utf-8');
         fs.renameSync(tempPath, cachePath);
     } catch {
-        // Best-effort cache; statusline rendering should never fail because
-        // of it, so unlike config.ts:writeSettingsJson we do not rethrow.
         try {
             fs.unlinkSync(tempPath);
-        } catch { /* best-effort cleanup; ignore */ }
+        } catch { }
     }
 }
 
@@ -324,7 +307,6 @@ export function runGitArgs(args: string[], context: RenderContext, cacheCommand?
     const ttlMs = getGitCacheTtlMs(context);
     const now = Date.now();
 
-    // Check cache first
     const memoryEntry = gitCommandCache.get(memoryCacheKey);
     if (memoryEntry && isCacheEntryFresh(memoryEntry, metadata, ttlMs, now)) {
         return memoryEntry.output;
@@ -336,11 +318,10 @@ export function runGitArgs(args: string[], context: RenderContext, cacheCommand?
         return persistentEntry.output;
     }
 
-    // --no-optional-locks (or GIT_OPTIONAL_LOCKS=0) prevents read-only commands
-    // (diff, status, rev-list, ...) from racing on .git/index.lock when another
-    // git process is writing it.
-    // We use the environment variable instead of the CLI flag because older Git
-    // versions (like 2.10.1) fail with "Unknown option: --no-optional-locks".
+    // GIT_OPTIONAL_LOCKS=0 stops read-only commands such as diff, status and rev-list
+    // from racing on .git/index.lock while another git process writes it.
+    // The --no-optional-locks flag does the same, but Git 2.10.1 and other old
+    // versions fail with "Unknown option: --no-optional-locks".
     // See https://git-scm.com/docs/git#Documentation/git.txt---no-optional-locks
 
     try {
@@ -366,9 +347,6 @@ export function runGitArgs(args: string[], context: RenderContext, cacheCommand?
     }
 }
 
-/**
- * Clear git command cache - for testing only
- */
 export function clearGitCache(): void {
     gitCommandCache.clear();
 }
@@ -428,7 +406,6 @@ export function getGitStatus(context: RenderContext): GitStatus {
         const line = entries[index];
         if (typeof line !== 'string' || line.length < 2)
             continue;
-        // Conflict detection: DD, AU, UD, UA, DU, AA, UU
         if (!conflicts && /^(DD|AU|UD|UA|DU|AA|UU)/.test(line))
             conflicts = true;
         if (!staged && /^[MADRCTU]/.test(line))
@@ -511,7 +488,6 @@ export function getGitConflictCount(context: RenderContext): number {
     if (!output)
         return 0;
 
-    // Count unique file paths (unmerged files appear 3 times in output)
     const files = new Set(output.split('\n').map((line) => {
         const parts = line.split(/\s+/).slice(3);
         return parts.join(' ');

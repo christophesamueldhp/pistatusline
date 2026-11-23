@@ -1,4 +1,3 @@
-// Barrel file - exports all components and their types
 export * from './ColorMenu';
 export * from './ExportConfigDialog';
 export * from './ImportConfigDialog';

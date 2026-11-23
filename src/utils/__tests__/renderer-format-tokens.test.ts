@@ -25,7 +25,6 @@ describe('formatTokens', () => {
     });
 
     it('promotes to M when the k value would round up to 1000.0 (regression)', () => {
-        // 999_950–999_999 previously rendered as "1000.0k" instead of "1.0M".
         expect(formatTokens(999950)).toBe('1.0M');
         expect(formatTokens(999999)).toBe('1.0M');
     });

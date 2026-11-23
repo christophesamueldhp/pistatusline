@@ -13,10 +13,6 @@ import {
     writeCachedWidth
 } from '../terminal-width-cache';
 
-// Unique per test process/run: the lock file lives on the real filesystem
-// (see terminal-width-cache.ts's withCacheLock), so a fixed shared path here
-// could collide with another concurrently-running test worker/process on the
-// same machine touching the same real path.
 const CACHE_PATH = `/tmp/test-terminal-width-${process.pid}-${Math.random().toString(36).slice(2)}.json`;
 const LOCK_PATH = `${CACHE_PATH}.lock`;
 
@@ -60,7 +56,6 @@ describe('terminal width cache', () => {
         try {
             fs.unlinkSync(LOCK_PATH);
         } catch {
-            // no lock file left over from a previous test
         }
     });
 
@@ -68,7 +63,6 @@ describe('terminal width cache', () => {
         try {
             fs.unlinkSync(LOCK_PATH);
         } catch {
-            // already cleaned up
         }
     });
 
@@ -81,8 +75,6 @@ describe('terminal width cache', () => {
         expect(readCachedWidth('session-a', 5, deps)).toEqual({ width: 209 });
     });
 
-    // The whole point: a cached "no tty" must be a HIT, not a miss, or the
-    // expensive no-tty case re-probes forever.
     it('round-trips a cached null width as a hit', () => {
         writeCachedWidth('session-a', null, deps);
         expect(readCachedWidth('session-a', 5, deps)).toEqual({ width: null });
@@ -147,8 +139,6 @@ describe('terminal width cache', () => {
         });
 
         it('does not clobber another writer: only its own entry is ever written under contention', () => {
-            // Simulate session-b's writer already having committed while session-a's
-            // writer holds the lock: session-a's deps snapshot predates that write.
             writeCachedWidth('session-b', 80, deps);
             const snapshotBeforeB = new Map(deps.files);
 
@@ -157,9 +147,6 @@ describe('terminal width cache', () => {
             writeCachedWidth('session-a', 209, staleDeps);
             fs.unlinkSync(LOCK_PATH);
 
-            // session-a's write was skipped (lock held), so session-b's already
-            // committed entry survives untouched -- nothing was lost to a stale
-            // read-modify-write.
             expect(readCachedWidth('session-b', 5, deps)).toEqual({ width: 80 });
         });
 

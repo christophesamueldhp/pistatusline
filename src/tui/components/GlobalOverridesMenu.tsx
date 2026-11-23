@@ -30,8 +30,6 @@ import { ConfirmDialog } from './ConfirmDialog';
 
 const NUMBER_FORMAT_KIND_WIDTH = Math.max(...NUMBER_KINDS.map(kind => kind.length));
 
-// Cycle a number kind's global style: default (precise) -> compact -> whole -> default.
-// A global style forces that kind across all widgets (see resolveNumberFormat).
 function cycleGlobalNumberStyle(settings: Settings, kind: NumberKind): Settings {
     const current = settings.numberFormat?.[kind]?.style;
     const nextStyle = getNextNumberStyle(current);
@@ -78,11 +76,9 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
     const [gradientHexInput, setGradientHexInput] = useState('');
     const isPowerlineEnabled = settings.powerline.enabled;
 
-    // Check if there are any manual separators in the current configuration
     const hasManualSeparators = settings.lines.some(line => line.some(item => item.type === 'separator')
     );
 
-    // Get colors from COLOR_MAP
     const bgColors = ['none', ...COLOR_MAP.filter(c => c.isBackground).map(c => c.name)];
     const fgColors = ['none', ...COLOR_MAP.filter(c => !c.isBackground).map(c => c.name)];
 
@@ -104,22 +100,18 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
             } else if (key.backspace) {
                 setPaddingInput(paddingInput.slice(0, -1));
             } else if (key.delete) {
-                // For simple text inputs without cursor, forward delete does nothing
             } else if (shouldInsertInput(input, key)) {
                 setPaddingInput(paddingInput + input);
             }
         } else if (editingSeparator) {
             if (key.return) {
-                // Only show confirmation if setting a non-empty separator AND there are manual separators
                 if (separatorInput && hasManualSeparators) {
                     setEditingSeparator(false);
                     setConfirmingSeparator(true);
                 } else {
-                    // Apply directly without confirmation
                     const updatedSettings = {
                         ...settings,
                         defaultSeparator: separatorInput || undefined,
-                        // Only remove manual separators if we're setting a non-empty default
                         lines: separatorInput
                             ? settings.lines.map(line => line.filter(item => item.type !== 'separator'))
                             : settings.lines
@@ -133,12 +125,10 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
             } else if (key.backspace) {
                 setSeparatorInput(separatorInput.slice(0, -1));
             } else if (key.delete) {
-                // For simple text inputs without cursor, forward delete does nothing
             } else if (shouldInsertInput(input, key)) {
                 setSeparatorInput(separatorInput + input);
             }
         } else if (confirmingSeparator) {
-            // Skip input handling when confirmation is active - let ConfirmDialog handle it
             return;
         } else if (gradientMode) {
             const exitGradient = () => {
@@ -226,7 +216,6 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                 };
                 onUpdate(updatedSettings);
             } else if ((input === 'b' || input === 'B') && !isPowerlineEnabled) {
-                // Cycle through background colors
                 const nextIndex = (currentBgIndex + 1) % bgColors.length;
                 const nextBgColor = bgColors[nextIndex];
                 const updatedSettings = {
@@ -235,14 +224,12 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                 };
                 onUpdate(updatedSettings);
             } else if ((input === 'c' || input === 'C') && !isPowerlineEnabled) {
-                // Clear override background color
                 const updatedSettings = {
                     ...settings,
                     overrideBackgroundColor: undefined
                 };
                 onUpdate(updatedSettings);
             } else if (input === 'o' || input === 'O') {
-                // Toggle global bold
                 const newGlobalBold = !globalBold;
                 setGlobalBold(newGlobalBold);
                 const updatedSettings = {
@@ -251,7 +238,6 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                 };
                 onUpdate(updatedSettings);
             } else if (input === 'm' || input === 'M') {
-                // Toggle minimalist mode
                 const newMinimalistMode = !minimalistMode;
                 setMinimalistMode(newMinimalistMode);
                 const updatedSettings = {
@@ -263,7 +249,6 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                 setNumberFormatMode(true);
                 setNumberFormatKindIndex(0);
             } else if (input === 'f' || input === 'F') {
-                // Cycle through foreground colors
                 const nextIndex = (currentFgIndex + 1) % fgColors.length;
                 const nextFgColor = fgColors[nextIndex];
                 const updatedSettings = {
@@ -272,21 +257,18 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                 };
                 onUpdate(updatedSettings);
             } else if (input === 'g' || input === 'G') {
-                // Enter gradient selection mode
                 setGradientMode(true);
                 setGradientIndex(0);
                 setGradientCustomStep(null);
                 setGradientStartHex('');
                 setGradientHexInput('');
             } else if (input === 'x' || input === 'X') {
-                // Clear override foreground color
                 const updatedSettings = {
                     ...settings,
                     overrideForegroundColor: undefined
                 };
                 onUpdate(updatedSettings);
             } else if (input === 'd' || input === 'D') {
-                // Cycle through padding sides: both -> left -> right -> both
                 const paddingSides = DefaultPaddingSideSchema.options;
                 const currentIndex = paddingSides.indexOf(settings.defaultPaddingSide);
                 const nextSide = paddingSides[(currentIndex + 1) % paddingSides.length] ?? 'both';
@@ -419,7 +401,6 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                         <ConfirmDialog
                             inline={true}
                             onConfirm={() => {
-                                // Remove all manual separators from lines
                                 const updatedSettings = {
                                     ...settings,
                                     defaultSeparator: separatorInput,
@@ -430,7 +411,6 @@ export const GlobalOverridesMenu: React.FC<GlobalOverridesMenuProps> = ({ settin
                                 setConfirmingSeparator(false);
                             }}
                             onCancel={() => {
-                                // Cancel without applying changes
                                 setSeparatorInput(settings.defaultSeparator ?? '');
                                 setConfirmingSeparator(false);
                             }}

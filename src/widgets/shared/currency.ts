@@ -3,10 +3,6 @@ import { effectiveDecimals } from '../../utils/number-format';
 
 const FALLBACK_CURRENCY = 'USD';
 
-/**
- * Formats a monetary amount using the ISO 4217 currency code reported by the
- * usage API (extra_usage.currency), falling back to USD when absent or invalid.
- */
 export function formatUsageCurrency(
     amount: number,
     currency: string | undefined,

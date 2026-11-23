@@ -1,5 +1,3 @@
-// Detached background refresh for the git-review / git-ci-status widgets: the entry point
-// ccstatusline reaches by re-running its own CLI with this flag.
 import {
     GIT_REVIEW_REFRESH_FLAG,
     refreshGitReviewCacheFromCli

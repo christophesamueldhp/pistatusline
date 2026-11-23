@@ -92,8 +92,6 @@ const USAGE_PERCENT_WIDGET_CONFIG: Record<UsagePercentWidgetKind, UsagePercentWi
     }
 };
 
-// The session window also consults block metrics, so the resolvers take different
-// arguments and are picked per call rather than stored alongside the config.
 function resolveUsageWindow(kind: UsagePercentWidgetKind, data: RenderUsageData, context: RenderContext): UsageWindowMetrics | null {
     if (kind === 'session') {
         return resolveUsageWindowWithFallback(data, context.blockMetrics);

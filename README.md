@@ -5,11 +5,11 @@ full-screen TUI editor.
 
 pistatusline is based on [ccstatusline](https://github.com/sirmalloc/ccstatusline) by Matthew
 Breedlove, the status line for Claude Code. It ports ccstatusline 2.2.30 to run inside
-[pi](https://github.com/earendil-works/pi) instead of Claude Code: it replaces pi's footer, and
-`/pistatusline` opens ccstatusline's editor. It is not a lookalike. The widgets, the renderer
-(separators, flex separators, merge, padding, Powerline, themes, gradients) and the editor are
-ccstatusline's code, and the settings file uses ccstatusline's schema v4 unchanged. An existing
-`~/.config/ccstatusline/settings.json` renders the same lines in pi as in Claude Code.
+[pi](https://github.com/earendil-works/pi) instead of Claude Code. It replaces pi's footer, and
+`/pistatusline` opens ccstatusline's editor. It is not a lookalike. The widgets, the renderer and
+the editor are ccstatusline's code. The renderer keeps separators, flex separators, merge, padding,
+Powerline, themes and gradients. The settings file uses ccstatusline's schema v4 unchanged, so an
+existing `~/.config/ccstatusline/settings.json` renders the same lines in pi as in Claude Code.
 
 pistatusline is an independent project. It is not affiliated with or endorsed by ccstatusline or
 pi. Bugs in pistatusline belong in [this repo's issues](https://github.com/christophesamueldhp/pistatusline/issues),
@@ -32,8 +32,9 @@ npm run build
 pi install .
 ```
 
-Then start `pi`. The footer is replaced right away. pi has one footer slot, so another package that
-calls `setFooter` competes with this one, and the one loaded last wins. Keep only one enabled.
+Then start `pi`. pistatusline replaces the footer as soon as pi starts. pi has one footer slot, so
+another package that calls `setFooter` competes with this one, and the one loaded last wins. Keep
+only one enabled.
 
 ## Configure
 
@@ -41,16 +42,16 @@ calls `setFooter` competes with this one, and the one loaded last wins. Keep onl
 /pistatusline
 ```
 
-This opens ccstatusline's editor (Edit Lines, Edit Colors, Powerline Setup, Terminal Options, Global
-Overrides, Configure Status Line, Export/Import) with its live preview. pi hands the terminal to the
-editor and takes it back when you exit, the same way it runs an external editor. Save with `Ctrl+S`
-or "Save & Exit". The footer picks up the change as soon as the editor closes.
+This opens ccstatusline's editor with its live preview. Its menus are Edit Lines, Edit Colors,
+Powerline Setup, Terminal Options, Global Overrides, Configure Status Line and Export/Import. pi
+hands the terminal to the editor and takes it back when you exit, the same way it runs an external
+editor. Save with `Ctrl+S` or "Save & Exit". The footer shows the change as soon as the editor closes.
 
 | File | Contents |
 | --- | --- |
-| `~/.pi/agent/pistatusline/settings.json` | ccstatusline settings (schema v4). Seeded from `~/.config/ccstatusline/settings.json` on first run. |
+| `~/.pi/agent/pistatusline/settings.json` | ccstatusline settings, schema v4. The first run copies them from `~/.config/ccstatusline/settings.json`. |
 | `~/.pi/agent/pistatusline/state.json` | `enabled` and `refreshInterval`, which ccstatusline keeps in Claude Code's `settings.json`. |
-| `~/.pi/agent/pistatusline/usage/<provider>.json` | The last plan usage the footer showed for that provider: `fetchedAt` plus the usage percentages, reset times and extra-usage amounts, never credentials. Written when the values change, for tools that draw this status line elsewhere. |
+| `~/.pi/agent/pistatusline/usage/<provider>.json` | The last plan usage the footer showed for that provider. It holds `fetchedAt`, the usage percentages, the reset times and the extra-usage amounts, and never credentials. pistatusline writes it when the values change, so tools that draw this status line elsewhere can read it. |
 
 `PI_CODING_AGENT_DIR` moves these files, as it does for the rest of pi.
 
@@ -65,19 +66,20 @@ These exist because pi is not Claude Code. Everything else behaves the same.
   - Token, speed and compaction metrics come from the session entries, converted in memory to the
     transcript records ccstatusline analyses.
 - **Rendering.** Claude Code runs ccstatusline as a separate process. pistatusline runs the render
-  pipeline in a worker thread, so git, jj and custom-command widgets never block typing. Renders are
-  triggered by pi events (debounced 300 ms, as in Claude Code) and every `refreshInterval` seconds
-  (default 10).
+  pipeline in a worker thread, so git, jj and custom-command widgets never block typing. pi events
+  trigger a render, debounced by 300 ms as in Claude Code. A render also runs every
+  `refreshInterval` seconds, 10 by default.
 - **Width.** `flexMode: full` uses the footer's full width. ccstatusline reserves 6 columns for Claude
   Code's own UI, and pi has no equivalent.
 - **Extension statuses.** What other pi extensions publish with `ctx.ui.setStatus` shows under the
-  status line, as it does in pi's own footer: one row ordered by key and joined with ` · `. A status
-  that contains a line break is drawn as its own block under that row, spacing kept.
-- **Plan usage** (`session-usage`, `weekly-usage`, `reset-timer`, `weekly-reset-timer`, and the
-  per-model and extra-usage widgets) follows the active model's provider. Each source uses the
-  credential pi already has for that provider (`/login` or its environment variable). A provider's
-  plan is polled only after one of its models has been active. Plans with a 5-hour window fill the
-  session widgets, and weekly windows fill the weekly ones.
+  status line, as it does in pi's own footer. They share one row, ordered by key and joined with
+  ` · `. A status that contains a line break is drawn as its own block under that row, with its
+  spacing kept.
+- **Plan usage.** The usage widgets follow the active model's provider. They are `session-usage`,
+  `weekly-usage`, `reset-timer`, `weekly-reset-timer`, and the per-model and extra-usage widgets.
+  Each source uses the credential pi already has for that provider, from `/login` or from its
+  environment variable. A provider's plan is polled only after one of its models has been active.
+  Plans with a 5-hour window fill the session widgets, and weekly windows fill the weekly ones.
 
   | Provider | Plan | Windows | Refresh |
   | --- | --- | --- | --- |
@@ -86,30 +88,35 @@ These exist because pi is not Claude Code. Everything else behaves the same.
   | `openai-codex` (OAuth login) | ChatGPT plan, the endpoint the Codex CLI reads | 5-hour, weekly | 60 s |
   | `kimi-coding` | Kimi For Coding | 5-hour, weekly | 60 s |
   | `zai`, `zai-coding-cn` | GLM Coding Plan | 5-hour, weekly | 60 s |
-  | `minimax`, `minimax-cn` | MiniMax Token Plan (the plan-wide `general` quota) | 5-hour, weekly | 60 s |
+  | `minimax`, `minimax-cn` | MiniMax Token Plan, the plan-wide `general` quota | 5-hour, weekly | 60 s |
   | `xai` (OAuth login) | SuperGrok weekly credits | weekly | 60 s |
 
   - Only the Anthropic and OpenCode Go sources are verified against a live account. The others
-    follow the response formats in each provider's own client and are covered by tests.
+    follow the response formats in each provider's own client, and tests cover them.
   - Windows without a ccstatusline widget are not shown: OpenCode Go's monthly window, the Kimi
-    and Z.ai monthly quotas, and xAI unified (monthly) billing.
+    and Z.ai monthly quotas, and xAI's monthly unified billing.
   - GitHub Copilot counts a monthly premium-request quota, and OpenRouter has a credit balance.
     Neither has a 5-hour or weekly window, so neither has a source.
 
-  When the active provider has no plan (an API key such as one from the Anthropic Console, other
-  pay-per-token APIs, local models), the usage widgets are left out, along with their separators.
-  A plan login whose token cannot be resolved (a failed OAuth refresh) shows ccstatusline's
-  `[No credentials]` instead. The widgets never show another provider's usage. Hide error states
-  per widget with `h` in Edit Lines ("when usage data is unavailable").
+  When the active provider has no plan, the usage widgets are left out, along with their
+  separators. An Anthropic Console API key, any other pay-per-token API and a local model have no
+  plan. A plan login whose token cannot be resolved, such as after a failed OAuth refresh, shows
+  ccstatusline's `[No credentials]` instead. The widgets never show another provider's usage. To
+  hide the error state of one widget, press `h` on it in Edit Lines and pick "when usage data is
+  unavailable".
 - **Thinking effort.** Also knows pi's `off` and `minimal` levels.
-- **Widgets with no data in pi are left out:** claude-account-email, claude-status, output-style,
-  vim-mode, voice-status, remote-control-status, skills, sandbox-status, block-timer, cache-timer,
-  and worktree-mode/name/branch/original-branch. A config that uses them still loads; those items
-  render nothing. `claude-session-id` shows pi's session id, and `version` shows pi's version.
+- **Widgets with no data in pi.** pistatusline leaves out claude-account-email, claude-status,
+  output-style, vim-mode, voice-status, remote-control-status, skills, sandbox-status, block-timer,
+  cache-timer, worktree-mode, worktree-name, worktree-branch and worktree-original-branch. A config
+  that uses them still loads, and those items render nothing. `claude-session-id` shows pi's
+  session id, and `version` shows pi's version.
 - **Main menu.** "Install to Claude Code", "Manage Installation" and "Check for Updates" become
-  **Enable/Disable in pi**. "Configure Status Line → Refresh Interval" sets pi's refresh interval.
+  "Enable/Disable in pi". "Refresh Interval" under "Configure Status Line" sets pi's refresh
+  interval.
 
-Every edit to ccstatusline's files is marked with a `// pistatusline:` comment.
+Every code change to ccstatusline's files is marked with a `// pistatusline:` comment. Most of
+ccstatusline's own comments are removed, so a merge of a new ccstatusline release also conflicts
+where upstream changed a comment.
 
 ## Develop
 
@@ -123,11 +130,11 @@ npm run build
 pi -ne -e ./dist/extension.js   # try it without installing
 ```
 
-`dist/` is not committed. `npm publish` rebuilds it (`prepublishOnly`).
+`dist/` is not committed. The `prepublishOnly` script rebuilds it on `npm publish`.
 
 The layout of `dist/`:
 
-- `dist/extension.js` is loaded by pi's extension loader and stays free of Ink.
+- pi's extension loader loads `dist/extension.js`, which does not import Ink.
 - `dist/render-worker.js` and `dist/tui-cli.js` load as native ESM and share chunks.
 
 ## Contributing
@@ -136,18 +143,18 @@ Issues and pull requests are welcome at
 [github.com/christophesamueldhp/pistatusline](https://github.com/christophesamueldhp/pistatusline).
 
 - Run `npm run typecheck`, `npm test` and `npm run build` before opening a pull request.
-- pi-specific code lives in `src/pi/`. Keep changes to ccstatusline's files small and mark each one
-  with a `// pistatusline:` comment, so upstream ccstatusline releases stay easy to merge.
+- pi-specific code lives in `src/pi/`. Keep code changes to ccstatusline's files small and mark each
+  one with a `// pistatusline:` comment, so upstream ccstatusline releases stay easy to merge.
 - A feature that is not specific to pi belongs in [ccstatusline](https://github.com/sirmalloc/ccstatusline)
   itself.
 
 ## Credits
 
-- [ccstatusline](https://github.com/sirmalloc/ccstatusline) by Matthew Breedlove: the widgets,
-  renderer and editor pistatusline is built on.
-- [pi](https://pi.dev) ([source](https://github.com/earendil-works/pi)): the coding agent
-  pistatusline runs in.
+- [ccstatusline](https://github.com/sirmalloc/ccstatusline) by Matthew Breedlove has the widgets,
+  renderer and editor that pistatusline is built on.
+- [pi](https://pi.dev) is the coding agent pistatusline runs in. Its source is at
+  [github.com/earendil-works/pi](https://github.com/earendil-works/pi).
 
 ## License
 
-MIT. Includes ccstatusline © Matthew Breedlove, MIT (see `LICENSE.ccstatusline` and `NOTICE`).
+MIT. Includes ccstatusline © Matthew Breedlove, also MIT. See `LICENSE.ccstatusline` and `NOTICE`.

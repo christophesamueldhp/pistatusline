@@ -32,9 +32,7 @@ describe('Block Cache Functions', () => {
     let originalClaudeConfigDir: string | undefined;
 
     beforeEach(() => {
-        // Create a temp directory for test isolation
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-test-'));
-        // Mock os.homedir to use temp directory
         vi.spyOn(os, 'homedir').mockReturnValue(tempDir);
         originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
         process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, '.claude-default');
@@ -47,7 +45,6 @@ describe('Block Cache Functions', () => {
         } else {
             process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
         }
-        // Clean up temp directory
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
@@ -212,15 +209,12 @@ describe('getCachedBlockMetrics integration', () => {
     beforeEach(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-test-'));
         vi.spyOn(os, 'homedir').mockReturnValue(tempDir);
-        // Mock CLAUDE_CONFIG_DIR to point to a non-existent directory
-        // This ensures getBlockMetrics returns null when cache is expired
         originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
         process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, '.claude-nonexistent');
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
-        // Restore original CLAUDE_CONFIG_DIR
         if (originalClaudeConfigDir === undefined) {
             delete process.env.CLAUDE_CONFIG_DIR;
         } else {
@@ -232,13 +226,11 @@ describe('getCachedBlockMetrics integration', () => {
     it('should return cached result when cache is within block duration', async () => {
         const { getCachedBlockMetrics, writeBlockCache, getBlockCachePath } = await import('../jsonl');
 
-        // Set up a cache with a start time 2 hours ago (within 5-hour block)
         const testStartTime = new Date();
         testStartTime.setHours(testStartTime.getHours() - 2);
 
         writeBlockCache(testStartTime);
 
-        // Verify cache was written
         expect(fs.existsSync(getBlockCachePath())).toBe(true);
 
         const result = getCachedBlockMetrics();
@@ -250,7 +242,6 @@ describe('getCachedBlockMetrics integration', () => {
     it('should recalculate when cache is expired (beyond block duration)', async () => {
         const { getCachedBlockMetrics, writeBlockCache } = await import('../jsonl');
 
-        // Set up a cache with a start time 6 hours ago (beyond 5-hour block)
         const expiredStartTime = new Date();
         expiredStartTime.setHours(expiredStartTime.getHours() - 6);
 
@@ -258,7 +249,6 @@ describe('getCachedBlockMetrics integration', () => {
 
         const result = getCachedBlockMetrics();
 
-        // Should return null because cache is expired and no real JSONL files exist
         expect(result).toBeNull();
     });
 
@@ -267,7 +257,6 @@ describe('getCachedBlockMetrics integration', () => {
 
         const result = getCachedBlockMetrics();
 
-        // Should return null because no cache and no real JSONL files exist
         expect(result).toBeNull();
     });
 
@@ -285,7 +274,6 @@ describe('getCachedBlockMetrics integration', () => {
         process.env.CLAUDE_CONFIG_DIR = profileB;
         const result = getCachedBlockMetrics();
 
-        // Should return null because cache is fresh but scoped to a different profile
         expect(result).toBeNull();
     });
 });
@@ -302,7 +290,6 @@ describe('getCachedBlockMetrics negative caching', () => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-empty-'));
         vi.spyOn(os, 'homedir').mockReturnValue(tempDir);
         originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
-        // A config directory with no transcripts, so a scan finds no block.
         process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, '.claude-nonexistent');
     });
 
@@ -325,8 +312,6 @@ describe('getCachedBlockMetrics negative caching', () => {
         expect(typeof cached.emptyUntil).toBe('string');
         expect(cached.configDir).toBe(path.resolve(process.env.CLAUDE_CONFIG_DIR ?? ''));
 
-        // The record bounds how late a new block can be reported, so it has to
-        // stand long enough to be worth having and short enough to go unnoticed.
         const standsForMs = new Date(cached.emptyUntil ?? '').getTime() - Date.now();
         expect(standsForMs).toBeGreaterThan(0);
         expect(standsForMs).toBeLessThanOrEqual(5 * 60 * 1000);
@@ -340,7 +325,6 @@ describe('getCachedBlockMetrics negative caching', () => {
 
         expect(getCachedBlockMetrics()).toBeNull();
 
-        // A second scan would have written a later instant.
         expect(readRawCache().emptyUntil).toBe(first);
     });
 
@@ -369,7 +353,6 @@ describe('getCachedBlockMetrics negative caching', () => {
 
         expect(getCachedBlockMetrics()).toBeNull();
 
-        // The foreign record was not trusted, so a scan ran and replaced it.
         expect(readRawCache().configDir).toBe(path.resolve(process.env.CLAUDE_CONFIG_DIR ?? ''));
     });
 

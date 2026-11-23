@@ -487,16 +487,11 @@ export function handleNormalInputMode({
             const matchedKeybind = customKeybinds.find(kb => kb.key === input);
 
             if (matchedKeybind && !key.ctrl) {
-                // The hide-state checklist is rendered by the items editor for
-                // every widget that declares hideable states, so it bypasses
-                // widget-level action handling.
                 if (matchedKeybind.action === EDIT_HIDE_STATES_ACTION) {
                     setCustomEditorWidget({ widget: currentWidget, impl: widgetImpl, action: matchedKeybind.action });
                     return;
                 }
 
-                // The precision cycle is shared by every numeric widget, so it is
-                // applied here instead of in each widget's handleEditorAction.
                 if (matchedKeybind.action === CYCLE_NUMBER_STYLE_ACTION) {
                     const newWidgets = [...widgets];
                     newWidgets[selectedIndex] = cycleNumberStyle(currentWidget);

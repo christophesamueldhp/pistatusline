@@ -50,7 +50,6 @@ export class ExtraUsageRemainingWidget implements Widget {
             return null;
         }
 
-        // Both extraUsageLimit and extraUsageUsed are in cents
         const limitDollars = data.extraUsageLimit / 100;
         const usedDollars = data.extraUsageUsed / 100;
         const remaining = Math.max(0, limitDollars - usedDollars);

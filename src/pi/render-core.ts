@@ -39,10 +39,8 @@ export interface RenderInput {
     settings: Settings;
     configError: string | null;
     status: StatusJSON;
-    /** pi session entries converted to Claude transcript records (see adapter.ts). */
     records: readonly unknown[];
     sessionName: string | null;
-    /** Plan usage from the provider-neutral sources; null when the active provider has no plan. */
     usage: PlanUsageData | null;
     width: number;
 }
@@ -64,18 +62,11 @@ function hideUsageWidget(item: WidgetItem): WidgetItem {
     return { ...item, metadata: { ...item.metadata, hide } };
 }
 
-/**
- * ccstatusline's renderMultipleLines (src/ccstatusline.ts in upstream) minus its Claude Code
- * specifics: data comes from pi instead of stdin + transcript file, and lines are returned
- * instead of printed (no nbsp substitution — that works around VS Code, not pi).
- */
 export async function renderLines(input: RenderInput): Promise<string[]> {
     const { settings, configError, status } = input;
     chalk.level = settings.colorLevel;
     updateColorMap();
 
-    // Without a plan there is no usage to show, so the usage widgets render as their
-    // "when usage data is unavailable" hide state does.
     const lines = input.usage === null ? settings.lines.map(line => line.map(hideUsageWidget)) : settings.lines;
     const has =(type: string) => lines.some(line => line.some(item => item.type === type));
     const hasSpeedItems = lines.some(line => line.some(item => SPEED_WIDGET_TYPES.has(item.type)));

@@ -21,30 +21,21 @@ const defaultDeps: NativeProbeDeps = {
     closeSync: (fd: number) => { fs.closeSync(fd); },
     isatty: (fd: number) => tty.isatty(fd),
     getColumns: (fd: number) => {
-        // tty.WriteStream reads the window size via TIOCGWINSZ. No subprocess.
         const stream = new tty.WriteStream(fd);
         const columns = stream.columns;
         return typeof columns === 'number' && columns > 0 ? columns : null;
     },
-    // Read at call time, not module-load time: tests pin process.platform per
-    // case, and a snapshot taken at import would ignore the pin.
     get platform(): string {
         return process.platform;
     }
 };
 
-/**
- * Parse the ppid (field 4) out of a /proc/<pid>/stat line.
- * The comm field (2) is wrapped in parens and may itself contain spaces and
- * parens, so fields must be read after the LAST ')'.
- */
 export function parsePpidFromStat(stat: string): number | null {
     const commEnd = stat.lastIndexOf(')');
     if (commEnd === -1) {
         return null;
     }
 
-    // After "(comm)" the remaining fields are: state, ppid, ...
     const fields = stat.slice(commEnd + 1).trim().split(/\s+/);
     const ppid = parseInt(fields[1] ?? '', 10);
     if (isNaN(ppid) || ppid <= 0) {
@@ -62,7 +53,6 @@ function findTTYDevice(pid: number, deps: NativeProbeDeps): string | null {
                 return target;
             }
         } catch {
-            // fd missing or not readable; try the next one
         }
     }
 
@@ -72,7 +62,6 @@ function findTTYDevice(pid: number, deps: NativeProbeDeps): string | null {
 function widthOfDevice(device: string, deps: NativeProbeDeps): number | null {
     let fd: number | null = null;
     try {
-        // O_NOCTTY: never adopt this device as our controlling terminal.
         fd = deps.openSync(device, fs.constants.O_RDONLY | fs.constants.O_NOCTTY);
         if (!deps.isatty(fd)) {
             return null;
@@ -86,17 +75,11 @@ function widthOfDevice(device: string, deps: NativeProbeDeps): number | null {
             try {
                 deps.closeSync(fd);
             } catch {
-                // best-effort
             }
         }
     }
 }
 
-/**
- * Probe terminal width with zero subprocesses, using /proc and TIOCGWINSZ.
- * Linux only; returns null anywhere else so the caller falls back to the
- * portable ps/stty/tput path.
- */
 export function probeWidthNative(deps: NativeProbeDeps = defaultDeps): number | null {
     if (deps.platform !== 'linux') {
         return null;

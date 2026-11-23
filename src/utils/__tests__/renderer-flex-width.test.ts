@@ -544,7 +544,6 @@ describe('flex-separator widget', () => {
         }, { terminalWidth: 0 });
         const plainLine = stripSgrCodes(line);
 
-        // No marker characters should leak into the output.
         expect(line).not.toContain('FLEX');
         expect(line).not.toContain('\x01');
         expect(plainLine).toBe('LEFT RIGHT');

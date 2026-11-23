@@ -15,13 +15,8 @@ const TOGGLE_CACHE_SCOPE_ACTION = 'toggle-cache-scope';
 
 const CACHE_SCOPE_KEYBIND: CustomKeybind = { key: 't', label: '(t)urn/session', action: TOGGLE_CACHE_SCOPE_ACTION };
 
-// Shared hideable state for cache widgets: hide when there is no cache
-// activity. Hiding is handled by the unified hideable-state system; the
-// per-turn/session scope toggle below is a separate display option.
 export const CACHE_EMPTY_HIDEABLE_STATE: HideableState = { key: 'empty', label: 'when there is no cache activity' };
 
-// Cache widgets default to per-turn ("last action") scope. When this flag is
-// enabled the widget reports cumulative session totals instead.
 export function isCacheSessionScope(item: WidgetItem): boolean {
     return isMetadataFlagEnabled(item, SCOPE_SESSION_KEY);
 }

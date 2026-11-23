@@ -31,8 +31,6 @@ const mockedExecFileSync = execFileSync as unknown as Mock;
 const ORIGINAL_CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR;
 const ORIGINAL_SECURESTORAGE_CONFIG_DIR = process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR;
 
-// The config-dir lookup keys off these variables, so every test starts from
-// the default (unset) profile regardless of the environment running the suite.
 beforeEach(() => {
     delete process.env.CLAUDE_CONFIG_DIR;
     delete process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR;

@@ -22,7 +22,6 @@ export function buildEnabledPowerlineSettings(settings: Settings, removeManualSe
             ...powerlineConfig,
             enabled: true,
             theme: resolveEnabledPowerlineTheme(powerlineConfig.theme),
-            // Separators are initialized by schema defaults, preserve existing values.
             separators: powerlineConfig.separators,
             separatorInvertBackground: powerlineConfig.separatorInvertBackground
         },

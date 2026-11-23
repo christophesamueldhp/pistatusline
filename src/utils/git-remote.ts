@@ -19,25 +19,12 @@ export interface ForkStatus {
     upstream: RemoteInfo | null;
 }
 
-/**
- * Extract owner and repo from a git remote URL.
- * Supports SSH, HTTPS, git://, and ssh:// formats.
- * Works with any git host (GitHub, GHES, GHEC, GitLab, etc.)
- *
- * Examples:
- * - git@github.com:owner/repo.git
- * - https://github.com/owner/repo.git
- * - git@github.service.anz:owner/repo.git
- * - ssh://git@github.com/owner/repo.git
- * - git://github.com/owner/repo
- */
 export function parseRemoteUrl(url: string): { host: string; owner: string; repo: string } | null {
     const trimmed = url.trim();
     if (trimmed.length === 0) {
         return null;
     }
 
-    // SSH format: git@host:owner/repo.git or user@host:owner/repo.git
     const sshMatch = !trimmed.includes('://')
         ? /^(?:[^@]+@)?([^:]+):(.+?)(?:\.git)?\/?$/.exec(trimmed)
         : null;
@@ -57,7 +44,6 @@ export function parseRemoteUrl(url: string): { host: string; owner: string; repo
         };
     }
 
-    // URL format: https://host/owner/repo.git, ssh://git@host/owner/repo.git, git://host/owner/repo
     try {
         const parsedUrl = new URL(trimmed);
         const supportedProtocols = new Set(['http:', 'https:', 'ssh:', 'git:']);
@@ -66,7 +52,6 @@ export function parseRemoteUrl(url: string): { host: string; owner: string; repo
             return null;
         }
 
-        // Remove leading/trailing slashes and .git suffix
         const pathname = parsedUrl.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/, '');
         const segments = pathname.split('/').filter(Boolean);
 
@@ -89,9 +74,6 @@ export function parseRemoteUrl(url: string): { host: string; owner: string; repo
     }
 }
 
-/**
- * Get information about a specific remote.
- */
 export function getRemoteInfo(remoteName: string, context: RenderContext): RemoteInfo | null {
     const url = runGitArgs(['remote', 'get-url', '--', remoteName], context, `remote get-url -- ${remoteName}`);
     if (!url) {
@@ -125,11 +107,6 @@ function getTrackingRemoteName(context: RenderContext): string | null {
     return remotes.find(remote => upstreamRef === remote || upstreamRef.startsWith(`${remote}/`)) ?? null;
 }
 
-/**
- * Get upstream info for widgets.
- * Prefer a literal "upstream" remote when it exists, otherwise fall back to the
- * current branch's tracking remote.
- */
 export function getUpstreamRemoteInfo(context: RenderContext): RemoteInfo | null {
     const namedUpstream = getRemoteInfo('upstream', context);
     if (namedUpstream) {
@@ -144,12 +121,6 @@ export function getUpstreamRemoteInfo(context: RenderContext): RemoteInfo | null
     return getRemoteInfo(trackingRemoteName, context);
 }
 
-/**
- * Get fork status by checking origin and upstream remotes.
- * A repository is considered a fork if:
- * 1. Both origin and upstream remotes exist
- * 2. They point to different owner/repo combinations
- */
 export function getForkStatus(context: RenderContext): ForkStatus {
     const origin = getRemoteInfo('origin', context);
     const upstream = getRemoteInfo('upstream', context);
@@ -167,9 +138,6 @@ export function getForkStatus(context: RenderContext): ForkStatus {
     };
 }
 
-/**
- * List all remote names.
- */
 export function listRemotes(context: RenderContext): string[] {
     const output = runGit('remote', context);
     if (!output) {

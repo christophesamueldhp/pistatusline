@@ -2,7 +2,6 @@ import type { WidgetItem } from '../types/Widget';
 
 import { generateGuid } from './guid';
 
-// Type for migration functions
 interface Migration {
     fromVersion: number;
     toVersion: number;
@@ -26,7 +25,6 @@ interface V1FieldRule {
     isValid: (value: unknown) => boolean;
 }
 
-// Type guards for checking data structure
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -120,17 +118,6 @@ function copyV1Fields(data: Record<string, unknown>, target: Record<string, unkn
     }
 }
 
-// v3 -> v4: per-widget boolean hide flags become the unified metadata.hide
-// list. The tables are a frozen snapshot of v3 semantics keyed by widget type
-// (including the pre-existing 'git-pr' alias for 'git-review', which is only
-// upgraded in memory at load time and can persist on disk). hideNoGit expands
-// to several states where one flag covered multiple placeholders: Git
-// Ahead/Behind also hid '(no upstream)' and Git PR also hid the no-PR
-// placeholder. defaultEnabled lists states a widget hides without any
-// metadata (Git Ahead/Behind's 0/0 auto-hide); they seed a list this migration
-// creates, so writing one does not turn them off. stateOrder doubles as the
-// filter over the merged set, so it has to name every state its widget
-// declares or a hand-written entry is dropped.
 export interface HideFlagRule {
     legacy: Record<string, string[]>;
     stateOrder: string[];
@@ -138,13 +125,7 @@ export interface HideFlagRule {
 }
 
 const NO_GIT_HIDE_RULE: HideFlagRule = { legacy: { hideNoGit: ['no-git'] }, stateOrder: ['no-git'] };
-// stateOrder is the filter for the merged list, so it has to name every state the
-// widget declares. The git counters also offer `zero`, which a hand-written hide
-// list can already carry in.
 const NO_GIT_ZERO_HIDE_RULE: HideFlagRule = { legacy: { hideNoGit: ['no-git'] }, stateOrder: ['no-git', 'zero'] };
-// Git CI Status also offers `no-data`, which hides its '-' placeholder. hideNoGit
-// never covered that placeholder, so the flag stays mapped to 'no-git' alone and
-// only a hand-written list can enable it.
 const NO_GIT_NO_DATA_HIDE_RULE: HideFlagRule = { legacy: { hideNoGit: ['no-git'] }, stateOrder: ['no-git', 'no-data'] };
 const NO_JJ_HIDE_RULE: HideFlagRule = { legacy: { hideNoJj: ['no-jj'] }, stateOrder: ['no-jj'] };
 const NO_REMOTE_HIDE_RULE: HideFlagRule = { legacy: { hideNoRemote: ['no-remote'] }, stateOrder: ['no-remote'] };
@@ -157,9 +138,6 @@ const GIT_REVIEW_HIDE_RULE: HideFlagRule = {
     },
     stateOrder: ['no-git', 'no-data', 'status', 'title']
 };
-// The Extra Usage widgets also offer `no-data`, which hides their usage-error
-// placeholder. hideIfDisabled never covered that placeholder, so it stays mapped
-// to 'disabled' alone and only a hand-written list can enable it.
 const EXTRA_USAGE_HIDE_RULE: HideFlagRule = { legacy: { hideIfDisabled: ['disabled'] }, stateOrder: ['disabled', 'no-data'] };
 const CACHE_HIDE_RULE: HideFlagRule = { legacy: { hideWhenEmpty: ['empty'] }, stateOrder: ['empty'] };
 
@@ -231,8 +209,6 @@ function migrateItemHideFlags(item: unknown): unknown {
         return item;
     }
 
-    // hasOwn, because a type naming an Object.prototype member would otherwise
-    // resolve to an inherited value and pass the guard below as a truthy rule.
     if (!Object.prototype.hasOwnProperty.call(V4_HIDE_FLAG_RULES, item.type)) {
         return item;
     }
@@ -243,17 +219,11 @@ function migrateItemHideFlags(item: unknown): unknown {
 
     const metadata = item.metadata;
     const presentKeys = V4_LEGACY_HIDE_KEYS.filter(key => key in metadata);
-    // PR #562 briefly represented Git Conflicts' hidden-zero choice as a
-    // display mode. Fold that choice into the shared zero hide state while
-    // preserving the non-hiding `clean` display mode.
     const hasLegacyHiddenZeroDisplay = item.type === 'git-conflicts' && metadata.zeroDisplay === 'hidden';
     if (presentKeys.length === 0 && !hasLegacyHiddenZeroDisplay) {
         return item;
     }
 
-    // A present hide list is authoritative under v4, so it replaces the
-    // widget's defaults rather than merging with them; defaults only seed a
-    // list this migration is creating from scratch.
     const writtenList = typeof metadata.hide === 'string' ? metadata.hide : undefined;
     const enabled = new Set<string>(writtenList === undefined ? rule.defaultEnabled ?? [] : []);
     if (writtenList !== undefined) {
@@ -299,29 +269,23 @@ function migrateItemHideFlags(item: unknown): unknown {
     return migratedItem;
 }
 
-// Define all migrations here
 export const migrations: Migration[] = [
     {
         fromVersion: 1,
         toVersion: 2,
         description: 'Migrate from v1 to v2',
         migrate: (data) => {
-            // Build a new v2 config from v1 data, only copying known fields
             const migrated: Record<string, unknown> = {};
 
-            // Process lines: strip separators if needed and assign GUIDs
             const processedLines = migrateV1Lines(data);
             if (processedLines) {
                 migrated.lines = processedLines;
             }
 
-            // Copy all v1 fields that exist
             copyV1Fields(data, migrated);
 
-            // Add version field for v2
             migrated.version = 2;
 
-            // Add update message for v2 migration
             migrated.updatemessage = {
                 message: 'ccstatusline updated to v2.0.0, launch tui to use new settings',
                 remaining: 12
@@ -335,13 +299,10 @@ export const migrations: Migration[] = [
         toVersion: 3,
         description: 'Migrate from v2 to v3',
         migrate: (data) => {
-            // Copy all existing data to v3
             const migrated: Record<string, unknown> = { ...data };
 
-            // Update version to 3
             migrated.version = 3;
 
-            // Add update message for v3 migration
             migrated.updatemessage = {
                 message: 'ccstatusline updated to v2.0.2, 5hr block timer widget added',
                 remaining: 12
@@ -357,9 +318,6 @@ export const migrations: Migration[] = [
         migrate: (data) => {
             const migrated: Record<string, unknown> = { ...data };
 
-            // Convert per-widget hide flags to the unified metadata.hide list.
-            // No updatemessage: rendering is unchanged, so there is nothing
-            // for users to act on.
             if (Array.isArray(data.lines)) {
                 migrated.lines = data.lines.map((line: unknown) => (Array.isArray(line)
                     ? line.map(migrateItemHideFlags)
@@ -373,24 +331,16 @@ export const migrations: Migration[] = [
     }
 ];
 
-/**
- * Detect the version of the config data
- */
 export function detectVersion(data: unknown): number {
     if (!isRecord(data))
         return 1;
 
-    // If it has a version field, use it
     if (typeof data.version === 'number')
         return data.version;
 
-    // No version field means it's the old v1 format
     return 1;
 }
 
-/**
- * Migrate config data from its current version to the target version
- */
 export function migrateConfig(data: unknown, targetVersion: number): unknown {
     if (!isRecord(data))
         return data;
@@ -398,7 +348,6 @@ export function migrateConfig(data: unknown, targetVersion: number): unknown {
     let currentVersion = detectVersion(data);
     let migrated: Record<string, unknown> = { ...data };
 
-    // Apply migrations sequentially
     while (currentVersion < targetVersion) {
         const migration = migrations.find(m => m.fromVersion === currentVersion);
 
@@ -412,9 +361,6 @@ export function migrateConfig(data: unknown, targetVersion: number): unknown {
     return migrated;
 }
 
-/**
- * Check if a migration is needed
- */
 export function needsMigration(data: unknown, targetVersion: number): boolean {
     return detectVersion(data) < targetVersion;
 }

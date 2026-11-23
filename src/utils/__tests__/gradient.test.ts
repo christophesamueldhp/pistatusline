@@ -95,7 +95,6 @@ describe('parseGradientSpec', () => {
         const retro = parseGradientSpec('gradient:retro');
         expect(retro).toHaveLength(9);
         expect(parseGradientSpec('gradient:RAINBOW')).toHaveLength(7);
-        // every shipped preset resolves to >= 2 usable stops
         for (const name of GRADIENT_PRESET_NAMES) {
             expect((parseGradientSpec(`gradient:${name}`) ?? []).length).toBeGreaterThanOrEqual(2);
         }
@@ -108,7 +107,6 @@ describe('applyGradientToText', () => {
     it('emits one code per non-whitespace character and leaves whitespace uncolored', () => {
         const out = applyGradientToText('ab cd', stops, 'truecolor');
         expect(countMatches(out, TRUECOLOR_CODE)).toBe(4);
-        // the space follows the visible char directly, with no color code in between
         expect(out).toContain('b ');
     });
 
@@ -167,7 +165,6 @@ describe('sampleGradient', () => {
     });
 
     it('lands on the interior stop of a 3-stop gradient at its position', () => {
-        // t=0.5 across three stops brackets exactly on the middle stop (green).
         const mid = sampleGradient([{ r: 255, g: 0, b: 0 }, { r: 0, g: 255, b: 0 }, { r: 0, g: 0, b: 255 }], 0.5);
         expect(Math.abs(mid.r - 0)).toBeLessThanOrEqual(2);
         expect(Math.abs(mid.g - 255)).toBeLessThanOrEqual(2);
@@ -201,7 +198,6 @@ describe('gradientCodeAt', () => {
     });
 
     it('falls back to the 256-color path defensively at ansi16', () => {
-        // Callers degrade before this, but if reached, ansi16 must not emit truecolor.
         expect(gradientCodeAt(stops, 0.5, 'ansi16')).toMatch(/^\x1b\[38;5;\d+m$/);
     });
 });
@@ -235,7 +231,6 @@ describe('applyLineGradient', () => {
     });
 
     it('colors both ends of a two-cluster line (denominator of exactly 1)', () => {
-        // totalWidth 2 -> denominator 1: first cluster at t=0, second at t=1.
         const out = applyLineGradient('ab', stops, 'truecolor');
         const codes = out.match(TRUECOLOR_CODE) ?? [];
         expect(codes.length).toBe(2);
@@ -306,17 +301,11 @@ describe('renderStatusLine with a gradient override', () => {
     });
 
     it('closes with a reset even when the line is truncated (no color leak)', () => {
-        // Regression: the gradient pass must run AFTER truncation. If it runs before,
-        // truncateStyledText cuts from the right and slices off the trailing \x1b[39m,
-        // so the last color leaks past the status line. A narrow width forces
-        // truncation; the rendered line must still end with the reset.
         const gradient = 'gradient:hex:dbbb6f,hex:c4808a,hex:9070d0,hex:b8cad4,hex:4a8a5e';
         const full = renderLine(widgets, { overrideForegroundColor: gradient });
         const truncated = renderLine(widgets, { overrideForegroundColor: gradient }, 8);
 
-        // truncation actually happened
         expect(getVisibleWidth(truncated)).toBeLessThan(getVisibleWidth(full));
-        // and the gradient's trailing reset survived
         expect(truncated.endsWith('\x1b[39m')).toBe(true);
     });
 

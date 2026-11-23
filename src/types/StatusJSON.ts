@@ -16,7 +16,7 @@ const CoercedNumberSchema = z.preprocess((value) => {
 
 const RateLimitPeriodSchema = z.object({
     used_percentage: CoercedNumberSchema.nullable().optional(),
-    resets_at: CoercedNumberSchema.nullable().optional() // Unix epoch seconds
+    resets_at: CoercedNumberSchema.nullable().optional()
 });
 
 export type RateLimitPeriod = z.infer<typeof RateLimitPeriodSchema>;

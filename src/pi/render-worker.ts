@@ -22,7 +22,7 @@ import { writeUsageCache } from './usage-cache';
 
 setGitReviewRefreshScript(path.join(path.dirname(fileURLToPath(import.meta.url)), 'git-review-refresh.js'));
 
-// Claude Code runs ccstatusline as a separate process; this worker is pi's equivalent, so the
+// Claude Code runs ccstatusline as a separate process. This worker is pi's equivalent, so the
 // widgets' synchronous git/jj/custom-command calls never block pi's input loop. Worker stdio is
 // piped into pi's terminal, so ccstatusline's diagnostics must not reach it.
 const silent = () => undefined;

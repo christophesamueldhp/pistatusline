@@ -1,5 +1,3 @@
-// The editor runs as its own process, as ccstatusline's does (`npx ccstatusline`): pi hands it
-// the terminal and waits. Usage: node tui-cli.js <settings.json> <state.json>
 import { runTUI } from '../tui/App';
 import { initConfigPath } from '../utils/config';
 
@@ -14,7 +12,6 @@ if (!configPath || !statePath) {
     process.exit(2);
 }
 
-// Draw on the alternate screen, like an external editor, so pi's screen is intact on exit.
 process.stdout.write('\x1b[?1049h');
 initConfigPath(configPath);
 let state = readState(statePath);
@@ -36,5 +33,4 @@ try {
 } finally {
     process.stdout.write('\x1b[?1049l');
 }
-// Ink can leave stdin handles open after unmount; the process has nothing else to do.
 process.exit(0);

@@ -42,8 +42,6 @@ export class CustomTextWidget implements Widget {
         }];
     }
 
-    // The actual hiding happens in the renderer, which resolves the merge
-    // target's rendered output (see applyMergeTargetHiding)
     getHideableStates(): HideableState[] {
         return [MERGE_TARGET_HIDDEN_HIDEABLE_STATE];
     }
@@ -60,17 +58,14 @@ const CustomTextEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, onC
     const [text, setText] = useState(widget.customText ?? '');
     const [cursorPos, setCursorPos] = useState(text.length);
 
-    // Helper to get grapheme segments if Intl.Segmenter is available
     const getGraphemes = (str: string): string[] => {
         if ('Segmenter' in Intl) {
             const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
             return Array.from(segmenter.segment(str), seg => seg.segment);
         }
-        // Fallback to simple character array (won't handle complex emojis perfectly)
         return Array.from(str);
     };
 
-    // Convert between grapheme index and string index
     const graphemeToStringIndex = (str: string, graphemeIndex: number): number => {
         const graphemes = getGraphemes(str);
         let stringIndex = 0;
@@ -140,27 +135,21 @@ const CustomTextEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, onC
                 }
             }
         } else if (shouldInsertInput(input, key)) {
-            // Insert the input at cursor position
             const newText = text.slice(0, cursorPos) + input + text.slice(cursorPos);
             setText(newText);
 
-            // Move cursor by the actual string length of the input
-            // This handles multi-byte characters including emojis with modifiers
             setCursorPos(cursorPos + input.length);
         }
     });
 
-    // Get the grapheme at cursor position for display
     const graphemes = getGraphemes(text);
     const currentGraphemeIndex = stringToGraphemeIndex(text, cursorPos);
 
-    // Build display with ANSI codes for cursor highlighting
     let display = 'Enter custom text: ';
     for (let i = 0; i < graphemes.length; i++) {
         const grapheme = graphemes[i];
         if (grapheme) {
             if (i === currentGraphemeIndex) {
-                // Use inverse video for cursor position
                 display += `\x1b[7m${grapheme}\x1b[0m`;
             } else {
                 display += grapheme;
@@ -168,7 +157,6 @@ const CustomTextEditor: React.FC<WidgetEditorProps> = ({ widget, onComplete, onC
         }
     }
     if (currentGraphemeIndex >= graphemes.length) {
-        // Cursor at end
         display += '\x1b[7m \x1b[0m';
     }
 

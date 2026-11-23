@@ -63,7 +63,6 @@ describe('Cache widgets', () => {
             }
         };
 
-        // context = 500 + 8000 + 2000 = 10500
         expect(new w.CacheHitRateWidget().render(turnItem('cache-hit-rate'), context, DEFAULT_SETTINGS)).toBe('Cache Hit: 80.0%');
         expect(new w.CacheReadWidget().render(turnItem('cache-read'), context, DEFAULT_SETTINGS)).toBe('Cache Read: fmt:8000 (76.2%)');
         expect(new w.CacheWriteWidget().render(turnItem('cache-write'), context, DEFAULT_SETTINGS)).toBe('Cache Write: fmt:2000 (19.0%)');
@@ -93,7 +92,6 @@ describe('Cache widgets', () => {
             }
         };
 
-        // session context = 1000 + 6000 + 4000 = 11000
         expect(new w.CacheHitRateWidget().render(sessionItem('cache-hit-rate'), context, DEFAULT_SETTINGS)).toBe('Cache Hit: 60.0%');
         expect(new w.CacheReadWidget().render(sessionItem('cache-read'), context, DEFAULT_SETTINGS)).toBe('Cache Read: fmt:6000 (54.5%)');
         expect(new w.CacheWriteWidget().render(sessionItem('cache-write'), context, DEFAULT_SETTINGS)).toBe('Cache Write: fmt:4000 (36.4%)');
@@ -152,7 +150,6 @@ describe('Cache widgets', () => {
             }
         };
 
-        // Token widgets drop percentages when there is no prompt-context denominator.
         expect(new w.CacheHitRateWidget().render(turnItem('cache-hit-rate'), context, DEFAULT_SETTINGS)).toBe('Cache Hit: 0.0%');
         expect(new w.CacheHitRateWidget().render(turnItem('cache-hit-rate', { numberFormat: { style: 'whole' } }), context, DEFAULT_SETTINGS)).toBe('Cache Hit: 0%');
         expect(new w.CacheReadWidget().render(turnItem('cache-read'), context, DEFAULT_SETTINGS)).toBe('Cache Read: fmt:0');

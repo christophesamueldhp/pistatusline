@@ -48,7 +48,7 @@ interface MainMenuItem {
 
 export type MainMenuEntry = MainMenuItem | '-';
 
-// pistatusline: "installed" means the statusline is enabled as pi's footer.
+// pistatusline: "installed" means the status line is enabled as pi's footer.
 function getInstallationMenuItem(
     isClaudeInstalled: boolean,
     _installation?: InstallationMetadata
@@ -196,7 +196,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({
 }) => {
     const menuItems = buildMainMenuItems(isClaudeInstalled, hasChanges, installation);
 
-    // Check if we should show the truncation warning
     const showTruncationWarning
         = previewIsTruncated && settings?.flexMode === 'full-minus-40';
 

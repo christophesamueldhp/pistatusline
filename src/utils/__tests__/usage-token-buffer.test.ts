@@ -27,8 +27,6 @@ const ORIGINAL_SECURESTORAGE_CONFIG_DIR = process.env.CLAUDE_SECURESTORAGE_CONFI
 
 describe('getUsageToken dump-keychain behavior', () => {
     beforeEach(() => {
-        // The candidate scan under test only runs for the default profile, so
-        // shed any config-dir variables leaking in from the environment.
         delete process.env.CLAUDE_CONFIG_DIR;
         delete process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR;
         mockedExecFileSync.mockReset();

@@ -29,7 +29,6 @@ export class CustomCommandWidget implements Widget {
         const truncatedCmd = cmd.length > 20 ? `${cmd.substring(0, 17)}...` : cmd;
         const displayText = `${this.getDisplayName()} (${truncatedCmd})`;
 
-        // Build modifiers string
         const modifiers: string[] = [];
         if (item.maxWidth) {
             modifiers.push(`max:${item.maxWidth}`);
@@ -78,9 +77,7 @@ export class CustomCommandWidget implements Widget {
 
             let output = result.stdout;
 
-            // Strip ANSI codes if preserveColors is false
             if (!item.preserveColors) {
-                // Strip ANSI/OSC escape sequences and keep only visible text
                 output = getVisibleText(output);
             }
 
@@ -112,7 +109,6 @@ export class CustomCommandWidget implements Widget {
 
     supportsRawValue(): boolean { return false; }
     supportsColors(item: WidgetItem): boolean {
-        // Only supports colors if preserveColors is false
         return !item.preserveColors;
     }
 }

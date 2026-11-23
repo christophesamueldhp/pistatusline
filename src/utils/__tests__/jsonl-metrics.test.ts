@@ -17,8 +17,6 @@ import { getContextWindowMetrics } from '../context-window';
 import { getTranscriptAnalysis } from '../jsonl';
 import type { SpeedMetricsCollection } from '../jsonl-metrics';
 
-// The render path makes one combined scan; these narrow the result to the one
-// metric each case is about, so the assertions stay readable.
 async function getSessionDuration(transcriptPath: string): Promise<string | null> {
     const analysis = await getTranscriptAnalysis(transcriptPath, { includeSessionDuration: true });
     return analysis.sessionDuration;
@@ -140,8 +138,6 @@ describe('jsonl transcript metrics', () => {
         const metrics = await getTokenMetrics(transcriptPath);
         const live = getContextWindowMetrics({ context_window: { current_usage: usage } } as unknown as StatusJSON);
 
-        // A non-numeric or negative count reads as 0 in both paths, so the
-        // transcript fallback can never disagree with the live status JSON.
         expect(metrics.inputTokens).toBe(0);
         expect(metrics.outputTokens).toBe(0);
         expect(metrics.contextLength).toBe(5100);
@@ -264,10 +260,7 @@ describe('jsonl transcript metrics', () => {
         tempRoots.push(root);
         const transcriptPath = path.join(root, 'streaming.jsonl');
 
-        // Simulate two API calls, each with intermediate streaming entries (stop_reason: null)
-        // and a final entry (stop_reason: "tool_use" or "end_turn")
         const lines = [
-            // API call 1: two intermediates + one final
             makeUsageLine({
                 timestamp: '2026-01-01T10:00:00.000Z',
                 input: 1,
@@ -292,7 +285,6 @@ describe('jsonl transcript metrics', () => {
                 cacheCreate: 11000,
                 stopReason: 'tool_use'
             }),
-            // API call 2: one intermediate + one final
             makeUsageLine({
                 timestamp: '2026-01-01T10:00:02.000Z',
                 input: 1,
@@ -315,15 +307,14 @@ describe('jsonl transcript metrics', () => {
 
         const metrics = await getTokenMetrics(transcriptPath);
 
-        // Should only count the two final entries, not the three intermediates
         expect(metrics).toEqual({
-            inputTokens: 2,           // 1 + 1
-            outputTokens: 550,        // 150 + 400
-            cachedTokens: 46500,      // (12000 + 11000) + (23000 + 500)
-            cacheReadTokens: 35000,   // 12000 + 23000
-            cacheCreationTokens: 11500, // 11000 + 500
-            totalTokens: 47052,       // 2 + 550 + 46500
-            contextLength: 23501      // last main-chain final entry: 1 + 23000 + 500
+            inputTokens: 2,
+            outputTokens: 550,
+            cachedTokens: 46500,
+            cacheReadTokens: 35000,
+            cacheCreationTokens: 11500,
+            totalTokens: 47052,
+            contextLength: 23501
         });
     });
 
@@ -434,7 +425,6 @@ describe('jsonl transcript metrics', () => {
         tempRoots.push(root);
         const transcriptPath = path.join(root, 'legacy.jsonl');
 
-        // Older transcript format without stop_reason
         const lines = [
             makeUsageLine({
                 timestamp: '2026-01-01T10:00:00.000Z',
@@ -456,7 +446,6 @@ describe('jsonl transcript metrics', () => {
 
         const metrics = await getTokenMetrics(transcriptPath);
 
-        // Should count all entries since none have stop_reason
         expect(metrics).toEqual({
             inputTokens: 300,
             outputTokens: 130,
@@ -473,10 +462,6 @@ describe('jsonl transcript metrics', () => {
         tempRoots.push(root);
         const transcriptPath = path.join(root, 'compact-boundary.jsonl');
 
-        // A large pre-compaction turn, then Claude Code's compact_boundary marker.
-        // The pre-compaction entry describes a context that no longer exists, so
-        // context length must reflect the boundary's postTokens (18000), not the
-        // stale 235000 the last usage entry would otherwise produce.
         const lines = [
             makeUsageLine({
                 timestamp: '2026-01-01T10:00:00.000Z',
@@ -498,7 +483,6 @@ describe('jsonl transcript metrics', () => {
 
         const metrics = await getTokenMetrics(transcriptPath);
 
-        // Totals stay cumulative for the session; only contextLength resets.
         expect(metrics).toEqual({
             inputTokens: 5000,
             outputTokens: 100,
@@ -544,7 +528,6 @@ describe('jsonl transcript metrics', () => {
 
         const metrics = await getTokenMetrics(transcriptPath);
 
-        // contextLength = post-compaction turn (200 + 17000 + 500), not 18000 or 235000.
         expect(metrics).toEqual({
             inputTokens: 5200,
             outputTokens: 150,
@@ -561,9 +544,6 @@ describe('jsonl transcript metrics', () => {
         tempRoots.push(root);
         const transcriptPath = path.join(root, 'compact-no-post-tokens.jsonl');
 
-        // Older transcript format: a compact_boundary without postTokens. The
-        // pre-compaction context is gone and we have no post-compaction size, so
-        // the stale 235000 must not leak through.
         const lines = [
             makeUsageLine({
                 timestamp: '2026-01-01T10:00:00.000Z',
@@ -614,8 +594,6 @@ describe('jsonl transcript metrics', () => {
         tempRoots.push(root);
         const transcriptPath = path.join(root, 'streamed-tokens.jsonl');
 
-        // Many small lines keep the cumulative totals easy to assert while
-        // exercising repeated record aggregation.
         const lineCount = 2500;
         const handle = fs.openSync(transcriptPath, 'w');
         try {
@@ -1286,7 +1264,6 @@ describe('jsonl transcript metrics', () => {
             })
         ].join('\n'));
 
-        // Create a regular file where the subagents directory is expected.
         fs.writeFileSync(subagentsPath, 'not-a-directory');
 
         const metrics = await getSpeedMetrics(transcriptPath, { includeSubagents: true });

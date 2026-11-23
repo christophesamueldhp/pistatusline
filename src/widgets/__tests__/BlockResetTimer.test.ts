@@ -97,7 +97,6 @@ describe('BlockResetTimerWidget', () => {
             remainingPercent: 90
         });
 
-        // 10% of 16 cells is 1.6, past the half-cell mark, so the 2nd cell fills.
         expect(render(widget, item, { usageData: {} })).toBe('Reset [██░░░░░░░░░░░░░░] 10.0%');
     });
 
@@ -123,8 +122,6 @@ describe('BlockResetTimerWidget', () => {
         expect(new BlockResetTimerWidget().getHideableStates().map(state => state.key)).toEqual(['no-data']);
     });
 
-    // One state covers both placeholders, since either means the same thing to
-    // a reader: the widget has nothing to report yet.
     it.each([
         ['a usage error', { error: 'timeout' as const }],
         ['no data at all', {}]

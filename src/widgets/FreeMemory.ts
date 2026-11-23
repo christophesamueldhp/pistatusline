@@ -28,13 +28,11 @@ function formatBytes(bytes: number, format: NumberFormat): string {
     return `${bytes}B`;
 }
 
-// Get memory usage like htop does on macOS (Active + Wired)
 function getUsedMemoryMacOS(): number | null {
     try {
         const output = execSync('vm_stat', { encoding: 'utf8', windowsHide: true });
         const lines = output.split('\n');
 
-        // Parse page size from first line: "Mach Virtual Memory Statistics: (page size of 16384 bytes)"
         const firstLine = lines[0];
         if (!firstLine)
             return null;
@@ -45,7 +43,6 @@ function getUsedMemoryMacOS(): number | null {
             return null;
         const pageSize = parseInt(pageSizeString, 10);
 
-        // Parse page counts
         let activePages = 0;
         let wiredPages = 0;
 
@@ -86,10 +83,8 @@ export class FreeMemoryWidget implements Widget {
         let used: number;
 
         if (os.platform() === 'darwin') {
-            // Use htop-style calculation on macOS
             used = getUsedMemoryMacOS() ?? (total - os.freemem());
         } else {
-            // Fallback for other platforms
             used = total - os.freemem();
         }
 

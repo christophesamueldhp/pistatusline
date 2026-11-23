@@ -61,15 +61,14 @@ export interface RenderContext {
     gitCacheTtlSeconds?: number;
     customCommandCacheTtlSeconds?: number;
     gitReviewNeedsChecks?: boolean;
-    lineIndex?: number;  // Index of the current line being rendered (for theme cycling)
-    globalSeparatorIndex?: number;  // Global separator index that continues across lines
+    lineIndex?: number;
+    globalSeparatorIndex?: number;
 
-    // For git widget thresholds
     gitData?: {
         changedFiles?: number;
         insertions?: number;
         deletions?: number;
     };
-    globalPowerlineThemeIndex?: number;  // Global powerline theme index that continues across lines
-    globalPowerlineStartCapIndex?: number;  // Global start cap index across powerline flex segments and lines
+    globalPowerlineThemeIndex?: number;
+    globalPowerlineStartCapIndex?: number;
 }

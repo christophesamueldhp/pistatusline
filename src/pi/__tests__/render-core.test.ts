@@ -11,7 +11,6 @@ import { getVisibleText } from '../../utils/ansi';
 import { buildStatusJson } from '../adapter';
 import { renderLines } from '../render-core';
 
-// The user's real ~/.config/ccstatusline/settings.json (schema v4), unmodified.
 const userSettings = SettingsSchema.parse(JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures', 'ccstatusline-settings.json'),
     'utf-8'
@@ -62,7 +61,6 @@ describe('renderLines with the user ccstatusline config', () => {
         for (const line of visible) {
             expect(line.length).toBeLessThanOrEqual(140);
         }
-        // flexMode "full": the flex separator pushes the right side to the footer's full width.
         expect(visible[0]?.length).toBe(140);
     });
 
@@ -92,7 +90,6 @@ describe('renderLines with the user ccstatusline config', () => {
         });
 
         const visible = lines.map(line => getVisibleText(line));
-        // Line 2 holds only usage widgets and a separator, so it drops out entirely.
         expect(visible).toHaveLength(1);
         expect(visible[0]).toContain('Opus 5.5');
     });
