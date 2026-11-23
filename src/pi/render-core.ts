@@ -33,7 +33,7 @@ import {
 } from '../widgets/shared/hideable';
 import { USAGE_NO_DATA_HIDEABLE_STATE } from '../widgets/shared/usage-display';
 
-import type { PlanUsageData } from './usage';
+import type { PlanUsageState } from './usage';
 
 export interface RenderInput {
     settings: Settings;
@@ -41,15 +41,18 @@ export interface RenderInput {
     status: StatusJSON;
     records: readonly unknown[];
     sessionName: string | null;
-    usage: PlanUsageData | null;
+    usage: PlanUsageState;
     width: number;
 }
 
-export function resolvePlanUsage(usage: PlanUsageData | null): UsageData | null {
-    if (usage?.anthropicJson === undefined) {
-        return usage;
+export function resolvePlanUsage(usage: PlanUsageState): UsageData | null {
+    if (usage === 'no-plan') {
+        return null;
     }
-    return parseUsageApiResponse(usage.anthropicJson) ?? { error: 'parse-error' };
+    if (usage === 'pending') {
+        return {};
+    }
+    return 'anthropicJson' in usage ? (parseUsageApiResponse(usage.anthropicJson) ?? { error: 'parse-error' }) : usage;
 }
 
 const SPEED_WIDGET_TYPES = new Set(['output-speed', 'input-speed', 'total-speed']);
@@ -67,7 +70,7 @@ export async function renderLines(input: RenderInput): Promise<string[]> {
     chalk.level = settings.colorLevel;
     updateColorMap();
 
-    const lines = input.usage === null ? settings.lines.map(line => line.map(hideUsageWidget)) : settings.lines;
+    const lines = input.usage === 'no-plan' ? settings.lines.map(line => line.map(hideUsageWidget)) : settings.lines;
     const has =(type: string) => lines.some(line => line.some(item => item.type === type));
     const hasSpeedItems = lines.some(line => line.some(item => SPEED_WIDGET_TYPES.has(item.type)));
     const hasCompactionWidget = has('compaction-counter');

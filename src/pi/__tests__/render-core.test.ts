@@ -26,7 +26,7 @@ function status() {
         model: { id: 'claude-opus-5-5', name: 'Opus 5.5' },
         thinkingLevel: 'high',
         context: { tokens: 50_000, contextWindow: 200_000, percent: 25 },
-        allEntries: [],
+        entriesAcrossBranches: [],
         branchEntries: [],
         sessionStartMs: NOW,
         nowMs: NOW
@@ -85,7 +85,7 @@ describe('renderLines with the user ccstatusline config', () => {
             status: status(),
             records: [],
             sessionName: null,
-            usage: null,
+            usage: 'no-plan',
             width: 140
         });
 

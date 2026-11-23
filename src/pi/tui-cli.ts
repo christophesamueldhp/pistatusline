@@ -6,13 +6,16 @@ import {
     writeState
 } from './state';
 
+const ENTER_ALTERNATE_SCREEN = '\x1b[?1049h';
+const LEAVE_ALTERNATE_SCREEN = '\x1b[?1049l';
+
 const [configPath, statePath] = process.argv.slice(2);
 if (!configPath || !statePath) {
     process.stderr.write('usage: tui-cli <settings.json> <state.json>\n');
     process.exit(2);
 }
 
-process.stdout.write('\x1b[?1049h');
+process.stdout.write(ENTER_ALTERNATE_SCREEN);
 initConfigPath(configPath);
 let state = readState(statePath);
 try {
@@ -31,6 +34,6 @@ try {
         }
     });
 } finally {
-    process.stdout.write('\x1b[?1049l');
+    process.stdout.write(LEAVE_ALTERNATE_SCREEN);
 }
 process.exit(0);

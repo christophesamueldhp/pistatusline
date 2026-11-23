@@ -1,5 +1,5 @@
 import type { StatusJSON } from '../types/StatusJSON';
-import type { PlanUsageData } from './usage';
+import type { PlanUsageState } from './usage';
 
 export interface RenderRequest {
     id: number;
@@ -8,7 +8,7 @@ export interface RenderRequest {
     status: StatusJSON;
     records: unknown[];
     sessionName: string | null;
-    usage: PlanUsageData | null;
+    usage: PlanUsageState;
     usageCache?: { dir: string; provider: string };
 }
 

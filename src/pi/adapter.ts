@@ -27,7 +27,7 @@ export interface PiSnapshot {
     model?: { id: string; name?: string };
     thinkingLevel?: string;
     context?: { tokens: number | null; contextWindow: number; percent: number | null };
-    allEntries: readonly PiEntry[];
+    entriesAcrossBranches: readonly PiEntry[];
     branchEntries: readonly PiEntry[];
     sessionStartMs: number | null;
     nowMs: number;
@@ -42,7 +42,7 @@ function entryUsage(entry: PiEntry): PiUsage | undefined {
 }
 
 export function buildStatusJson(snapshot: PiSnapshot): StatusJSON {
-    const totalCost = snapshot.allEntries.reduce((sum, entry) => sum + finite(entryUsage(entry)?.cost?.total), 0);
+    const totalCost = snapshot.entriesAcrossBranches.reduce((sum, entry) => sum + finite(entryUsage(entry)?.cost?.total), 0);
     const status: StatusJSON = {
         session_id: snapshot.sessionId,
         cwd: snapshot.cwd,
