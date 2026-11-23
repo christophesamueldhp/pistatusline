@@ -24,7 +24,7 @@ const CACHED_FIELDS: readonly UsageDataField[] = [
     'extraUsageCurrency'
 ];
 
-const written = new Map<string, string>();
+const lastWrittenFields = new Map<string, string>();
 
 export function writeUsageCache(dir: string, provider: string, usage: UsageData | null, now = Date.now()): void {
     if (!usage || usage.error) {
@@ -33,7 +33,7 @@ export function writeUsageCache(dir: string, provider: string, usage: UsageData 
     const fields = Object.fromEntries(CACHED_FIELDS.filter(key => usage[key] !== undefined).map(key => [key, usage[key]]));
     const serialized = JSON.stringify(fields);
     const file = path.join(dir, `${provider}.json`);
-    if (Object.keys(fields).length === 0 || written.get(file) === serialized) {
+    if (Object.keys(fields).length === 0 || lastWrittenFields.get(file) === serialized) {
         return;
     }
     try {
@@ -41,7 +41,7 @@ export function writeUsageCache(dir: string, provider: string, usage: UsageData 
         const temp = `${file}.${process.pid}.tmp`;
         fs.writeFileSync(temp, JSON.stringify({ fetchedAt: new Date(now).toISOString(), ...fields }, null, 2), 'utf-8');
         fs.renameSync(temp, file);
-        written.set(file, serialized);
+        lastWrittenFields.set(file, serialized);
     } catch {
     }
 }

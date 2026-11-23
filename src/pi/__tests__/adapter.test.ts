@@ -27,7 +27,7 @@ function snapshot(overrides: Partial<PiSnapshot> = {}): PiSnapshot {
         cwd: '/work/repo',
         sessionId: 'session-1',
         piVersion: '0.87.0',
-        allEntries: [],
+        entriesAcrossBranches: [],
         branchEntries: [],
         sessionStartMs: T0,
         nowMs: T0 + 90_000,
@@ -62,7 +62,7 @@ describe('buildStatusJson', () => {
 
     it('sums cost across every branch of the session', () => {
         const status = buildStatusJson(snapshot({
-            allEntries: [
+            entriesAcrossBranches: [
                 assistant(1, { cost: { total: 0.25 } }),
                 assistant(2, { cost: { total: 0.5 } }),
                 { type: 'compaction', timestamp: at(3), usage: { cost: { total: 0.125 } } }

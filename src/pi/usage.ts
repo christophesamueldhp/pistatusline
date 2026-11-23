@@ -3,16 +3,19 @@ import type {
     UsageError
 } from '../utils/usage-types';
 
-export type PlanUsageData = UsageData & { anthropicJson?: string };
+export type PlanUsageData = UsageData | { anthropicJson: string };
+export type PlanUsageState = PlanUsageData | 'no-plan' | 'pending';
 
 export interface UsageSource {
     readonly providers: readonly string[];
     readonly refreshMs: number;
-    fetch(): Promise<PlanUsageData | null>;
+    fetch(): Promise<PlanUsageData | 'no-plan'>;
 }
 
 const ANTHROPIC_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const REQUEST_TIMEOUT_MS = 5000;
+const CCSTATUSLINE_USAGE_CACHE_MS = 180_000;
+const PLAN_REFRESH_MS = 60_000;
 
 function errorFor(error: unknown): UsageError {
     return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError') ? 'timeout' : 'api-error';
@@ -21,11 +24,11 @@ function errorFor(error: unknown): UsageError {
 export function anthropicUsageSource(getOAuthToken: () => Promise<string | null>): UsageSource {
     return {
         providers: ['anthropic'],
-        refreshMs: 180_000,
+        refreshMs: CCSTATUSLINE_USAGE_CACHE_MS,
         async fetch() {
             const token = await getOAuthToken();
             if (!token) {
-                return null;
+                return 'no-plan';
             }
             try {
                 const response = await fetch(ANTHROPIC_USAGE_URL, {
@@ -58,7 +61,7 @@ function jsonUsageSource(
         async fetch() {
             const target = await request();
             if (!target) {
-                return null;
+                return 'no-plan';
             }
             try {
                 const response = await fetch(target.url, { headers: target.headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
@@ -140,7 +143,7 @@ export function parseOpencodeGoUsage(json: unknown): UsageData | null {
 }
 
 export function opencodeGoUsageSource(getApiKey: () => Promise<string | null>): UsageSource {
-    return jsonUsageSource(['opencode-go'], 60_000, async () => {
+    return jsonUsageSource(['opencode-go'], PLAN_REFRESH_MS, async () => {
         const key = await getApiKey();
         return key ? { url: OPENCODE_GO_USAGE_URL, headers: { Authorization: `Bearer ${key}` } } : null;
     }, parseOpencodeGoUsage);
@@ -175,7 +178,7 @@ export function parseCodexUsage(json: unknown): UsageData | null {
 }
 
 export function codexUsageSource(getCredential: () => Promise<{ token: string; accountId?: string } | null>): UsageSource {
-    return jsonUsageSource(['openai-codex'], 60_000, async () => {
+    return jsonUsageSource(['openai-codex'], PLAN_REFRESH_MS, async () => {
         const credential = await getCredential();
         if (!credential) {
             return null;
@@ -192,6 +195,7 @@ export function codexUsageSource(getCredential: () => Promise<{ token: string; a
 }
 
 const WINDOW_UNIT_MINUTES: Record<string, number> = { MINUTE: 1, HOUR: 60, DAY: 1440 };
+const FIVE_HOURS_IN_MINUTES = 300;
 
 function kimiResetAt(data: JsonRecord): string | undefined {
     return isoTime(data.reset_time ?? data.resetTime ?? data.reset_at ?? data.resetAt);
@@ -216,7 +220,7 @@ export function parseKimiUsage(json: unknown): UsageData | null {
     const fiveHour = (Array.isArray(body?.limits) ? body.limits : []).map(record).find((item) => {
         const window = record(item?.window);
         const unit = String(window?.timeUnit ?? '').replace(/^TIME_UNIT_/, '');
-        return (num(window?.duration) ?? 0) * (WINDOW_UNIT_MINUTES[unit] ?? 0) === 300;
+        return (num(window?.duration) ?? 0) * (WINDOW_UNIT_MINUTES[unit] ?? 0) === FIVE_HOURS_IN_MINUTES;
     });
     const pools = record(body?.usages);
     const session = kimiCountWindow(record(fiveHour?.detail) ?? fiveHour) ?? kimiRatioWindow(record(pools?.limit_5h));
@@ -225,7 +229,7 @@ export function parseKimiUsage(json: unknown): UsageData | null {
 }
 
 export function kimiUsageSource(getAuthorization: () => Promise<string | null>): UsageSource {
-    return jsonUsageSource(['kimi-coding'], 60_000, async () => {
+    return jsonUsageSource(['kimi-coding'], PLAN_REFRESH_MS, async () => {
         const authorization = await getAuthorization();
         return authorization ? { url: 'https://api.kimi.com/coding/v1/usages', headers: { Authorization: authorization } } : null;
     }, parseKimiUsage);
@@ -253,7 +257,7 @@ const ZAI_HOSTS = { 'zai': 'https://api.z.ai', 'zai-coding-cn': 'https://open.bi
 
 /** Fetches GLM Coding Plan usage. The endpoint takes the raw API key, without "Bearer". */
 export function zaiUsageSource(provider: keyof typeof ZAI_HOSTS, getApiKey: () => Promise<string | null>): UsageSource {
-    return jsonUsageSource([provider], 60_000, async () => {
+    return jsonUsageSource([provider], PLAN_REFRESH_MS, async () => {
         const key = await getApiKey();
         return key ? { url: `${ZAI_HOSTS[provider]}/api/monitor/usage/quota/limit`, headers: { Authorization: key } } : null;
     }, parseZaiUsage);
@@ -293,7 +297,7 @@ export function parseMinimaxUsage(json: unknown): UsageData | null {
 const MINIMAX_HOSTS = { 'minimax': 'https://api.minimax.io', 'minimax-cn': 'https://api.minimaxi.com' } as const;
 
 export function minimaxUsageSource(provider: keyof typeof MINIMAX_HOSTS, getApiKey: () => Promise<string | null>): UsageSource {
-    return jsonUsageSource([provider], 60_000, async () => {
+    return jsonUsageSource([provider], PLAN_REFRESH_MS, async () => {
         const key = await getApiKey();
         return key ? { url: `${MINIMAX_HOSTS[provider]}/v1/token_plan/remains`, headers: { Authorization: `Bearer ${key}` } } : null;
     }, parseMinimaxUsage);
@@ -315,7 +319,7 @@ export function parseXaiUsage(json: unknown): UsageData | null {
 }
 
 export function xaiUsageSource(getOAuthToken: () => Promise<string | null>): UsageSource {
-    return jsonUsageSource(['xai'], 60_000, async () => {
+    return jsonUsageSource(['xai'], PLAN_REFRESH_MS, async () => {
         const token = await getOAuthToken();
         return token
             ? {
@@ -327,27 +331,30 @@ export function xaiUsageSource(getOAuthToken: () => Promise<string | null>): Usa
 }
 
 export class PlanUsage {
-    private readonly data = new Map<UsageSource, PlanUsageData | null>();
+    private readonly data = new Map<UsageSource, PlanUsageData | 'no-plan'>();
     private readonly timers = new Map<UsageSource, ReturnType<typeof setTimeout>>();
     private readonly polling = new Set<UsageSource>();
-    private started = false;
+    private pollingEnabled = false;
     private disposed = false;
 
     constructor(private readonly sources: readonly UsageSource[], private readonly onChange: () => void) {}
 
-    start(): void {
-        if (this.started || this.disposed) {
+    enablePolling(): void {
+        if (this.pollingEnabled || this.disposed) {
             return;
         }
-        this.started = true;
+        this.pollingEnabled = true;
         this.onChange();
     }
 
-    get(activeProvider: string | undefined): PlanUsageData | null {
+    watch(activeProvider: string | undefined): void {
         const active = this.sources.find(source => activeProvider !== undefined && source.providers.includes(activeProvider));
-        if (active && this.started && !this.polling.has(active)) {
+        if (active && this.pollingEnabled && !this.polling.has(active)) {
             this.poll(active);
         }
+    }
+
+    get(activeProvider: string | undefined): PlanUsageState {
         return selectUsage(this.sources.map(source => ({ providers: source.providers, data: this.data.get(source) })), activeProvider);
     }
 
@@ -378,9 +385,9 @@ export class PlanUsage {
 }
 
 export function selectUsage(
-    entries: readonly { providers: readonly string[]; data: PlanUsageData | null | undefined }[],
+    entries: readonly { providers: readonly string[]; data: PlanUsageData | 'no-plan' | undefined }[],
     activeProvider: string | undefined
-): PlanUsageData | null {
+): PlanUsageState {
     const entry = entries.find(item => activeProvider !== undefined && item.providers.includes(activeProvider));
-    return entry ? (entry.data === undefined ? {} : entry.data) : null;
+    return entry ? (entry.data ?? 'pending') : 'no-plan';
 }

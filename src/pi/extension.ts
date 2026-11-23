@@ -54,7 +54,7 @@ class RenderClient {
 
     constructor(private readonly onResult: (response: RenderResponse) => void) {}
 
-    request(request: Omit<RenderRequest, 'id'>): void {
+    requestLatest(request: Omit<RenderRequest, 'id'>): void {
         this.pending = request;
         this.pump();
     }
@@ -118,7 +118,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
 
     const client = new RenderClient((response) => {
         if (response.needsUsage) {
-            usage.start();
+            usage.enablePolling();
         }
         lines = response.lines;
         requestFooterRender?.();
@@ -163,11 +163,12 @@ export default function pistatusline(pi: ExtensionAPI): void {
         }
         try {
             const sessionManager = ctx.sessionManager;
-            const allEntries = sessionManager.getEntries() as unknown as PiEntry[];
+            const entriesAcrossBranches = sessionManager.getEntries() as unknown as PiEntry[];
             const branchEntries = sessionManager.getBranch() as unknown as PiEntry[];
-            const startedAt = sessionManager.getHeader()?.timestamp ?? allEntries[0]?.timestamp;
+            const startedAt = sessionManager.getHeader()?.timestamp ?? entriesAcrossBranches[0]?.timestamp;
             const startMs = startedAt ? Date.parse(startedAt) : Number.NaN;
-            client.request({
+            usage.watch(ctx.model?.provider);
+            client.requestLatest({
                 configPath,
                 width: footerWidth,
                 status: buildStatusJson({
@@ -177,7 +178,7 @@ export default function pistatusline(pi: ExtensionAPI): void {
                     ...(ctx.model ? { model: { id: ctx.model.id, name: ctx.model.name } } : {}),
                     thinkingLevel: pi.getThinkingLevel(),
                     ...(ctx.getContextUsage() ? { context: ctx.getContextUsage() } : {}),
-                    allEntries,
+                    entriesAcrossBranches,
                     branchEntries,
                     sessionStartMs: Number.isFinite(startMs) ? startMs : null,
                     nowMs: Date.now()

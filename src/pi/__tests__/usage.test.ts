@@ -73,13 +73,13 @@ describe('selectUsage', () => {
     });
 
     it('reports no plan when the active provider has no plan-usage source or no plan credential', () => {
-        expect(selectUsage([claude, go], 'openai')).toBeNull();
-        expect(selectUsage([claude, go], undefined)).toBeNull();
-        expect(selectUsage([{ providers: ['anthropic'], data: null }], 'anthropic')).toBeNull();
+        expect(selectUsage([claude, go], 'openai')).toBe('no-plan');
+        expect(selectUsage([claude, go], undefined)).toBe('no-plan');
+        expect(selectUsage([{ providers: ['anthropic'], data: 'no-plan' }], 'anthropic')).toBe('no-plan');
     });
 
-    it('reports a source that has not answered yet as loading, not as no plan', () => {
-        expect(selectUsage([{ providers: ['anthropic'], data: undefined }], 'anthropic')).toEqual({});
+    it('reports a source that has not answered yet as pending, not as no plan', () => {
+        expect(selectUsage([{ providers: ['anthropic'], data: undefined }], 'anthropic')).toBe('pending');
     });
 
     it('passes the active source\'s error through', () => {
@@ -91,7 +91,7 @@ describe('usage sources', () => {
     it('skips the request without an Anthropic OAuth token', async () => {
         const fetchMock = vi.fn();
         stubFetch(fetchMock);
-        expect(await anthropicUsageSource(() => Promise.resolve(null)).fetch()).toBeNull();
+        expect(await anthropicUsageSource(() => Promise.resolve(null)).fetch()).toBe('no-plan');
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -118,7 +118,7 @@ describe('usage sources', () => {
     it('leaves OpenCode Go silent without an API key', async () => {
         const fetchMock = vi.fn();
         stubFetch(fetchMock);
-        expect(await opencodeGoUsageSource(() => Promise.resolve(null)).fetch()).toBeNull();
+        expect(await opencodeGoUsageSource(() => Promise.resolve(null)).fetch()).toBe('no-plan');
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -266,7 +266,7 @@ describe('provider usage requests', () => {
         stubFetch(fetchMock);
         const none = () => Promise.resolve(null);
         for (const source of [codexUsageSource(none), kimiUsageSource(none), zaiUsageSource('zai', none), minimaxUsageSource('minimax', none), xaiUsageSource(none)]) {
-            expect(await source.fetch()).toBeNull();
+            expect(await source.fetch()).toBe('no-plan');
         }
         expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -283,9 +283,13 @@ describe('PlanUsage', () => {
         let changes = 0;
         const usage = new PlanUsage([source('anthropic'), source('opencode-go')], () => { changes++; });
 
-        expect(usage.get('opencode-go')).toEqual({});
-        usage.start();
+        usage.watch('opencode-go');
+        expect(fetched).toEqual([]);
+        expect(usage.get('opencode-go')).toBe('pending');
+        usage.enablePolling();
         usage.get('opencode-go');
+        expect(fetched).toEqual([]);
+        usage.watch('opencode-go');
         await new Promise(resolve => setImmediate(resolve));
 
         expect(fetched).toEqual(['opencode-go']);
@@ -295,19 +299,19 @@ describe('PlanUsage', () => {
     });
 
     it('reports no plan once a source answers without a plan credential', async () => {
-        const usage = new PlanUsage([{ providers: ['anthropic'], refreshMs: 60_000, fetch: () => Promise.resolve(null) }], () => {});
-        usage.start();
-        usage.get('anthropic');
+        const usage = new PlanUsage([{ providers: ['anthropic'], refreshMs: 60_000, fetch: () => Promise.resolve('no-plan') }], () => {});
+        usage.enablePolling();
+        usage.watch('anthropic');
         await new Promise(resolve => setImmediate(resolve));
 
-        expect(usage.get('anthropic')).toBeNull();
+        expect(usage.get('anthropic')).toBe('no-plan');
         usage.dispose();
     });
 
     it('reports a credential that cannot be resolved as missing credentials', async () => {
         const usage = new PlanUsage([{ providers: ['anthropic'], refreshMs: 60_000, fetch: () => Promise.reject(new Error('refresh failed')) }], () => {});
-        usage.start();
-        usage.get('anthropic');
+        usage.enablePolling();
+        usage.watch('anthropic');
         await new Promise(resolve => setImmediate(resolve));
 
         expect(usage.get('anthropic')).toEqual({ error: 'no-credentials' });
