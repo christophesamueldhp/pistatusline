@@ -63,7 +63,6 @@ describe('color sanitize helpers', () => {
 
         expect(sanitized[0]?.[0]?.color).toBe('cyan');
         expect(sanitized[0]?.[0]?.backgroundColor).toBeUndefined();
-        // Preserve existing behavior: separator foreground is not reset by current logic.
         expect(sanitized[0]?.[1]?.color).toBe('hex:ABCDEF');
         expect(sanitized[0]?.[1]?.backgroundColor).toBeUndefined();
     });
@@ -80,7 +79,6 @@ describe('color sanitize helpers', () => {
             expect(sanitized[0]?.[1]?.color).toBe('gradient:FF0000-0000FF');
         }
 
-        // Gradients are not "custom colors" for sanitize purposes - they degrade at render.
         expect(hasCustomWidgetColors(lines)).toBe(false);
     });
 });

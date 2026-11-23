@@ -41,11 +41,6 @@ export function normalizeThinkingEffort(value: string | undefined): ResolvedThin
     return undefined;
 }
 
-/**
- * Returns an update when a transcript record authoritatively changes the
- * effort level. A /model result without an effort clears an older transcript
- * value, matching the reverse-search behavior used by the widget fallback.
- */
 export function getThinkingEffortUpdate(record: unknown): ThinkingEffortUpdate | null {
     const entry = record as TranscriptEntry | null;
     if (typeof entry?.message?.content !== 'string') {

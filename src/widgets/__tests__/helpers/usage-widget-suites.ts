@@ -161,10 +161,6 @@ export function runUsagePercentWidgetSuite<TWidget extends UsageWidgetLike>(conf
         expect(config.render(widget, config.baseItem, context)).toBe(config.expectedTime);
     });
 
-    // formatPercent's format argument is optional and its default reproduces the
-    // baseline output, so a render path that stops passing the resolved format
-    // stays invisible against default settings. Pinning a non-default style is
-    // what makes that reachable.
     it('applies the resolved number format to the percentage', () => {
         const widget = config.createWidget();
         const context = getUsageContext(config.usageField, config.usageValue);

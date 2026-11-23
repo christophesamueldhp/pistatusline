@@ -1,4 +1,3 @@
-// Bundles pistatusline into dist/: the pi extension, the render worker, and the Ink editor.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,11 +47,11 @@ const common = {
     logLevel: 'warning'
 };
 
-// pi loads the extension through jiti, so it must stay one self-contained file without Ink:
-// jiti would otherwise transform the shared chunk and its top-level await.
+// pi loads the extension through jiti, so it must stay one self-contained file without Ink.
+// Otherwise jiti would transform the shared chunk and its top-level await.
 const extension = await esbuild.build({ ...common, entryPoints: { extension: 'src/pi/extension.ts' } });
 // The worker and the editor load as native ESM. Splitting keeps yoga-layout's top-level await
-// valid: without it esbuild wraps lazily-imported modules in sync initialisers that await.
+// valid. Without splitting, esbuild wraps lazily imported modules in sync initialisers that await.
 const native = await esbuild.build({
     ...common,
     entryPoints: {

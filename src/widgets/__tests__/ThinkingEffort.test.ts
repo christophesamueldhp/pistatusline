@@ -20,7 +20,6 @@ import { DEFAULT_SETTINGS } from '../../types/Settings';
 import { loadClaudeSettingsSync } from '../../utils/claude-settings';
 import { ThinkingEffortWidget } from '../ThinkingEffort';
 
-// Mock claude-settings to avoid filesystem reads in tests
 vi.mock('../../utils/claude-settings', () => ({ loadClaudeSettingsSync: vi.fn() }));
 
 const mockedLoadSettings = loadClaudeSettingsSync as Mock;

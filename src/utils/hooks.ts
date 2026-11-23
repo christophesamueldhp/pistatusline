@@ -15,11 +15,6 @@ export interface WidgetHookDef {
 
 const HOOK_TAG = 'ccstatusline-managed';
 
-// Matches ccstatusline hook commands written by any install method
-// (global binary, `bunx ccstatusline@latest --hook`, `npx ccstatusline --hook`, …).
-// Used to heal legacy/untagged hooks that predate HOOK_TAG so they do not
-// accumulate alongside the managed set on every sync. The space before `--hook`
-// and trailing boundary avoid matching unrelated `--hook*` substrings.
 const CCSTATUSLINE_HOOK_PATTERN = /ccstatusline.* --hook(?:\s|$)/;
 
 interface HookEntry {
@@ -103,7 +98,6 @@ export async function syncWidgetHooks(settings: Settings): Promise<void> {
     const claudeSettings = await loadClaudeSettings({ logErrors: false });
     const hooks = (claudeSettings.hooks ?? {}) as Record<string, HookEntry[]>;
 
-    // Remove tagged entries and legacy untagged ccstatusline hook commands
     stripManagedHooks(hooks);
 
     const statusCommand = await getExistingStatusLine();
@@ -114,7 +108,6 @@ export async function syncWidgetHooks(settings: Settings): Promise<void> {
     }
     const hookCommand = `${statusCommand} --hook`;
 
-    // Add needed hooks
     for (const def of needed) {
         const entry: HookEntry = {
             _tag: HOOK_TAG,

@@ -85,7 +85,6 @@ describe('applyMergeTargetHiding', () => {
 
         applyMergeTargetHiding(line);
 
-        // ★ belongs to the hidden tokens widget; ✦ belongs to the visible branch
         expect(line[0]?.content).toBe('');
         expect(line[2]?.content).toBe('✦');
     });

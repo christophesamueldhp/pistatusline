@@ -63,8 +63,8 @@ export function resolveUsageWindowWithFallback(
         return usageWindow;
     }
 
-    // pistatusline: no fallback to Claude Code's cached 5-hour block (it scans ~/.claude
-    // transcripts); without provider data pi has no block to estimate.
+    // pistatusline: no fallback to Claude Code's cached 5-hour block, which scans ~/.claude
+    // transcripts. Without provider data, pi has no block to estimate.
     const fallbackMetrics = blockMetrics;
     if (!fallbackMetrics) {
         return null;

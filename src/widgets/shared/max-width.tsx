@@ -29,10 +29,6 @@ export function getMaxWidthModifier(item: WidgetItem): string | null {
     return item.maxWidth ? `max:${item.maxWidth}` : null;
 }
 
-// Caps a widget's rendered text to maxWidth visible columns, appending an
-// ellipsis. ANSI- and OSC8-aware via truncateStyledText, so callers may pass
-// already-styled text; for hyperlinked widgets prefer truncating the visible
-// label before wrapping so the link target stays intact.
 export function applyMaxWidth(text: string, maxWidth: number | undefined): string {
     return maxWidth && maxWidth > 0 ? truncateStyledText(text, maxWidth, { ellipsis: true }) : text;
 }

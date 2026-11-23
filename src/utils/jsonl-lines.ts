@@ -1,13 +1,8 @@
 import * as fs from 'fs';
 import { StringDecoder } from 'string_decoder';
 
-/** Read size for both sync iterators. Exported so tests size records against it rather than a copy. */
 export const JSONL_READ_CHUNK_BYTES = 1024 * 1024;
 
-/**
- * Splits byte chunks using JSONL's LF delimiter without interpreting Unicode
- * line separators or lone carriage returns as record boundaries.
- */
 class JsonlLineSplitter {
     private decoder = new StringDecoder('utf8');
     private readonly fragments: string[] = [];
@@ -104,17 +99,9 @@ function decodeReverseLine(segments: Buffer[], totalBytes: number, stripBom: boo
     return line.length > 0 ? line : null;
 }
 
-/**
- * Stream a JSONL file line-by-line without materializing the whole file as one
- * string. Claude Code session transcripts can exceed Node's max string length
- * (~512MB / 0x1fffffe8), so `fs.readFile(..., 'utf-8')` throws and callers that
- * catch the error end up reporting zeros.
- */
 export async function* iterateJsonlLines(filePath: string): AsyncGenerator<string> {
     const stream = fs.createReadStream(filePath, { highWaterMark: JSONL_READ_CHUNK_BYTES });
     const splitter = new JsonlLineSplitter();
-    // Active read errors reject the async iterator. This listener also covers a
-    // late close error emitted after iterator cleanup on network filesystems.
     stream.on('error', () => undefined);
 
     try {
@@ -132,11 +119,6 @@ export async function* iterateJsonlLines(filePath: string): AsyncGenerator<strin
     }
 }
 
-/**
- * Synchronous line iterator for call sites that cannot be async.
- * Decodes chunk segments incrementally so multi-byte UTF-8 sequences and long
- * records spanning chunks remain correct without repeatedly copying prefixes.
- */
 export function* iterateJsonlLinesSync(filePath: string): Generator<string> {
     const fd = fs.openSync(filePath, 'r');
     try {
@@ -162,10 +144,6 @@ export function* iterateJsonlLinesSync(filePath: string): Generator<string> {
     }
 }
 
-/**
- * Reads JSONL records from newest to oldest without loading the whole file.
- * This is intended for widgets that only need the latest matching record.
- */
 export function* iterateJsonlLinesReverseSync(filePath: string): Generator<string> {
     const fd = fs.openSync(filePath, 'r');
     try {

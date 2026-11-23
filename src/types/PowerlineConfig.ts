@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-// Schema for powerline configuration
 export const PowerlineConfigSchema = z.object({
     enabled: z.boolean().default(false),
     separators: z.array(z.string()).default(['\uE0B0']),
@@ -12,5 +11,4 @@ export const PowerlineConfigSchema = z.object({
     continueThemeAcrossLines: z.boolean().default(false)
 });
 
-// Inferred type from schema
 export type PowerlineConfig = z.infer<typeof PowerlineConfigSchema>;

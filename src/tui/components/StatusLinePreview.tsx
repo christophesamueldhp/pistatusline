@@ -42,7 +42,6 @@ const renderSingleLine = (
     preRenderedWidgets: PreRenderedWidget[],
     preCalculatedMaxWidths: number[]
 ): RenderResult => {
-    // Create render context for preview
     const context: RenderContext = {
         terminalWidth,
         isPreview: true,
@@ -67,13 +66,10 @@ export function preparePreviewLineForTerminal(line: string, terminalWidth: numbe
 }
 
 export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, terminalWidth, settings, onTruncationChange }) => {
-    // Render each configured line
-    // Pass the full terminal width - the renderer will handle preview adjustments
     const { renderedLines, anyTruncated } = React.useMemo(() => {
         if (!settings)
             return { renderedLines: [], anyTruncated: false };
 
-        // Always pre-render all widgets once (for efficiency)
         const preRenderedLines = preRenderAllWidgets(lines, settings, {
             terminalWidth,
             isPreview: true,
@@ -122,7 +118,6 @@ export const StatusLinePreview: React.FC<StatusLinePreviewProps> = ({ lines, ter
         return { renderedLines: result, anyTruncated: truncated };
     }, [lines, terminalWidth, settings]);
 
-    // Notify parent when truncation status changes
     React.useEffect(() => {
         onTruncationChange?.(anyTruncated);
     }, [anyTruncated, onTruncationChange]);

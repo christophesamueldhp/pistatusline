@@ -57,7 +57,6 @@ export class CurrentWorkingDirWidget implements Widget {
             const newAbbreviateHome = !currentAbbreviateHome;
 
             if (newAbbreviateHome) {
-                // When enabling abbreviateHome, disable fishStyle (mutually exclusive)
                 const { fishStyle, ...restMetadata } = item.metadata ?? {};
                 return {
                     ...item,
@@ -67,7 +66,6 @@ export class CurrentWorkingDirWidget implements Widget {
                     }
                 };
             } else {
-                // When disabling abbreviateHome
                 const { abbreviateHome, ...restMetadata } = item.metadata ?? {};
 
                 return {
@@ -81,9 +79,7 @@ export class CurrentWorkingDirWidget implements Widget {
             const currentFishStyle = item.metadata?.fishStyle === 'true';
             const newFishStyle = !currentFishStyle;
 
-            // Toggle fish style and clear segments
             if (newFishStyle) {
-                // When enabling fish-style, clear segments and abbreviateHome (mutually exclusive)
                 const { segments, abbreviateHome, ...restMetadata } = item.metadata ?? {};
                 return {
                     ...item,
@@ -93,7 +89,6 @@ export class CurrentWorkingDirWidget implements Widget {
                     }
                 };
             } else {
-                // When disabling fish-style
                 const { fishStyle, ...restMetadata } = item.metadata ?? {};
 
                 return {
@@ -147,25 +142,19 @@ export class CurrentWorkingDirWidget implements Widget {
         if (fishStyle) {
             displayPath = this.abbreviatePath(cwd);
         } else {
-            // Apply home abbreviation first if enabled
             if (abbreviateHome) {
                 displayPath = this.abbreviateHomeDir(displayPath);
             }
 
-            // Then apply segments truncation
             if (segments && segments > 0) {
-                // Support both POSIX ('/') and Windows ('\\') separators; preserve original separator in output
                 const useBackslash = displayPath.includes('\\') && !displayPath.includes('/');
                 const outSep = useBackslash ? '\\' : '/';
                 const pathParts = displayPath.split(/[\\/]+/);
 
-                // Remove empty strings from splitting (e.g., leading slash or UNC leading separators)
                 const filteredParts = pathParts.filter(part => part !== '');
 
                 if (filteredParts.length > segments) {
-                    // Take the last N segments and join with the detected separator
                     const selectedSegments = filteredParts.slice(-segments);
-                    // Preserve ~ prefix when combined with segments
                     const prefix = displayPath.startsWith('~') ? `~${outSep}` : '';
                     displayPath = prefix + '...' + outSep + selectedSegments.join(outSep);
                 }
@@ -215,30 +204,25 @@ export class CurrentWorkingDirWidget implements Widget {
         const useBackslash = path.includes('\\') && !path.includes('/');
         const sep = useBackslash ? '\\' : '/';
 
-        // Replace home directory with ~
         let normalizedPath = path;
         if (path.startsWith(homeDir)) {
             normalizedPath = '~' + path.slice(homeDir.length);
         }
 
-        // Split path into parts
         const parts = normalizedPath.split(/[\\/]+/).filter(part => part !== '');
 
-        // Keep first and last parts full, abbreviate middle parts
         const abbreviated = parts.map((part, index) => {
             if (index === 0 || index === parts.length - 1) {
-                return part;  // Keep full
+                return part;
             }
 
-            // Hidden directories keep the dot
             if (part.startsWith('.') && part.length > 1) {
                 return '.' + (part[1] ?? '');
             }
 
-            return part[0];  // Only first letter for others
+            return part[0];
         });
 
-        // Rebuild path
         if (normalizedPath.startsWith('~')) {
             return abbreviated.join(sep);
         } else if (normalizedPath.startsWith('/')) {
@@ -265,7 +249,6 @@ const CurrentWorkingDirEditor: React.FC<WidgetEditorProps> = ({ widget, onComple
                         }
                     });
                 } else {
-                    // Clear segments if blank or invalid
                     const { segments, ...restMetadata } = widget.metadata ?? {};
                     onComplete({
                         ...widget,

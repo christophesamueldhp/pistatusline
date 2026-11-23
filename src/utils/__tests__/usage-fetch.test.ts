@@ -182,8 +182,6 @@ process.stdout.write(JSON.stringify({
         fs.mkdirSync(bin, { recursive: true });
         fs.mkdirSync(claudeConfig, { recursive: true });
 
-        // Keep the macOS Keychain stub in sync with credential changes made by
-        // the tests, so every platform exercises the same login and tokens.
         fs.writeFileSync(securityScript, '#!/bin/sh\n/bin/cat "$CLAUDE_CONFIG_DIR/.credentials.json"\n');
         fs.chmodSync(securityScript, 0o755);
         fs.writeFileSync(credentialsFile, JSON.stringify({ claudeAiOauth: { accessToken: 'test-token' } }));
@@ -205,9 +203,9 @@ process.stdout.write(JSON.stringify({
 
         Object.assign(env, {
             HOME: options.home,
-            // os.homedir() prefers USERPROFILE on Windows; inheriting the
-            // real one lets the probe escape into the user's actual home
-            // and read/write the live ~/.cache/ccstatusline
+            // os.homedir() prefers USERPROFILE on Windows. With the real value,
+            // the probe would read and write the live ~/.cache/ccstatusline
+            // in the user's home.
             USERPROFILE: options.home,
             PATH: options.pathDir ?? '/nonexistent',
             TEST_REQUIRED_FIELDS_JSON: JSON.stringify(options.requiredFields ?? []),
@@ -237,8 +235,6 @@ process.stdout.write(JSON.stringify({
 
         const result = JSON.parse(output) as UsageProbeResult;
 
-        // A probe resolving a different home has escaped its sandbox and would
-        // read or write the real user's ~/.cache/ccstatusline
         expect(result.homedir).toBe(options.home);
 
         return result;
@@ -260,8 +256,6 @@ function parseLockContents(lockContents: string | null): { blockedUntil: number;
     return lockContents ? JSON.parse(lockContents) as { blockedUntil: number; error?: string } : null;
 }
 
-// createTokenHome writes an access-token-only credentials file; these tests
-// need a refresh token alongside it to exercise the account fingerprint.
 function writeUsageCredentials(claudeConfig: string, claudeAiOauth: { accessToken: string; refreshToken?: string }): void {
     fs.writeFileSync(path.join(claudeConfig, '.credentials.json'), JSON.stringify({ claudeAiOauth }));
 }
@@ -395,8 +389,6 @@ describe('fetchUsageData error handling', () => {
             disabled_reason: null
         }
     });
-    // Mirrors a real Enterprise-account response: every rate-limit window is
-    // null because Enterprise plans have no 5-hour/7-day windows (#343).
     const enterpriseNullWindowsResponseBody = JSON.stringify({
         five_hour: null,
         seven_day: null,
@@ -711,11 +703,6 @@ describe('fetchUsageData error handling', () => {
             expect(result.second).toEqual(result.first);
             expect(result.requestCount).toBe(1);
 
-            // The probe writes usage.json with a real-wall-clock mtime, so derive
-            // 'now' from it (not the mocked epoch) to keep the cache within
-            // CACHE_MAX_AGE. This exercises the file-cache fast path a real later
-            // render takes, rather than depending on a lingering lock to suppress
-            // the refetch.
             const cacheMtimeMs = fs.statSync(path.join(home.home, '.cache', 'ccstatusline', 'usage.json')).mtimeMs;
             const cachedResult = harness.runProbe({
                 claudeConfigDir: home.claudeConfig,
@@ -878,11 +865,6 @@ describe('fetchUsageData error handling', () => {
                 responseBody: successResponseBody
             });
 
-            // fetchUsageData writes a short 'timeout' lock before the request as an
-            // in-flight guard. A successful fetch must remove it; otherwise the lock
-            // lingers for LOCK_MAX_AGE and a later cache miss (e.g. an account switch
-            // invalidating the fingerprint) reports a spurious [Timeout] while the
-            // API is healthy.
             expect(result.cacheExists).toBe(true);
             expect(result.lockExists).toBe(false);
             expect(result.lockContents).toBeNull();
@@ -912,9 +894,6 @@ describe('fetchUsageData error handling', () => {
                 responseBody: successResponseBody
             });
 
-            // The JSON lock stores an absolute deadline and so cannot age out.
-            // Honoring a bogus one strands every usage widget on [Timeout] with
-            // no way back; the fetch must run and overwrite the poisoned file.
             expect(result.requestCount).toBe(1);
             expect(result.first).toEqual({
                 sessionUsage: 42,
@@ -948,7 +927,6 @@ describe('fetchUsageData error handling', () => {
                 pathDir: home.bin
             });
 
-            // The horizon must not undercut a genuine Retry-After backoff.
             expect(result.requestCount).toBe(0);
             expect(result.first).toEqual({ error: 'rate-limited' });
         } finally {
@@ -997,7 +975,6 @@ describe('fetchUsageData error handling', () => {
             const cacheDir = path.join(home.home, '.cache', 'ccstatusline');
             fs.mkdirSync(cacheDir, { recursive: true });
             const cacheFile = path.join(cacheDir, 'usage.json');
-            // A complete cache written under a different account's token.
             fs.writeFileSync(cacheFile, JSON.stringify({ sessionUsage: 5, tokenHash: 'deadbeefdeadbeef' }));
             const seededMtimeMs = fs.statSync(cacheFile).mtimeMs;
 
@@ -1011,8 +988,6 @@ describe('fetchUsageData error handling', () => {
                 responseBody: successResponseBody
             });
 
-            // The cached fingerprint mismatches the live token, so the still-fresh
-            // cache is rejected and the API is hit once for the new account.
             expect(result.requestCount).toBe(1);
             expect(result.first.sessionUsage).toBe(42);
         } finally {
@@ -1112,7 +1087,6 @@ describe('fetchUsageData error handling', () => {
                 requiredFields: ['sessionUsage']
             });
 
-            // Fingerprint matches and the cache is fresh, so it is served with no API call.
             expect(result.requestCount).toBe(0);
             expect(result.first.sessionUsage).toBe(5);
         } finally {
@@ -1269,8 +1243,6 @@ describe('fetchUsageData error handling', () => {
 
         try {
             const home = harness.createTokenHome('access-token-refreshed');
-            // The access token was reissued since the cache was written; the
-            // refresh token, which identifies the login, is unchanged.
             writeUsageCredentials(home.claudeConfig, {
                 accessToken: 'reissued-access-token',
                 refreshToken: 'stable-refresh-token'
@@ -1287,8 +1259,6 @@ describe('fetchUsageData error handling', () => {
                 requiredFields: ['sessionUsage']
             });
 
-            // A refresh must not look like an account switch: the cache stands
-            // and no request is made.
             expect(result.requestCount).toBe(0);
             expect(result.first.sessionUsage).toBe(5);
         } finally {
@@ -1308,9 +1278,6 @@ describe('fetchUsageData error handling', () => {
             const fingerprint = createHash('sha256').update('stable-refresh-token').digest('hex').slice(0, 16);
             const { mtimeMs } = seedUsageCache(home.home, { sessionUsage: 5, tokenHash: fingerprint });
 
-            // Cache is past CACHE_MAX_AGE and a server-issued backoff is active,
-            // so the stale-cache fallback is the only thing standing between the
-            // widgets and error text for the rest of the window.
             const backedOffNowMs = mtimeMs + 200000;
             fs.writeFileSync(path.join(home.home, '.cache', 'ccstatusline', 'usage.lock'), JSON.stringify({
                 blockedUntil: Math.floor(backedOffNowMs / 1000) + 3600,
@@ -1356,7 +1323,6 @@ describe('fetchUsageData error handling', () => {
                 responseBody: successResponseBody
             });
 
-            // A different login still invalidates the cache immediately.
             expect(result.requestCount).toBe(1);
             expect(result.first.sessionUsage).toBe(42);
         } finally {
@@ -1391,11 +1357,6 @@ describe('fetchUsageData error handling', () => {
             expect(result.second).toEqual(result.first);
             expect(result.requestCount).toBe(1);
 
-            // The probe writes usage.json with a real-wall-clock mtime, so derive
-            // 'now' from it (not the mocked epoch) to keep the cache within
-            // CACHE_MAX_AGE. This exercises the file-cache fast path a real later
-            // render takes, rather than depending on a lingering lock to suppress
-            // the refetch.
             const cacheMtimeMs = fs.statSync(path.join(home.home, '.cache', 'ccstatusline', 'usage.json')).mtimeMs;
             const cachedResult = harness.runProbe({
                 claudeConfigDir: home.claudeConfig,
@@ -1443,11 +1404,6 @@ describe('fetchUsageData error handling', () => {
             expect(result.second).toEqual(result.first);
             expect(result.requestCount).toBe(1);
 
-            // The probe writes usage.json with a real-wall-clock mtime, so derive
-            // 'now' from it (not the mocked epoch) to keep the cache within
-            // CACHE_MAX_AGE. This exercises the file-cache fast path a real later
-            // render takes, rather than depending on a lingering lock to suppress
-            // the refetch.
             const cacheMtimeMs = fs.statSync(path.join(home.home, '.cache', 'ccstatusline', 'usage.json')).mtimeMs;
             const cachedResult = harness.runProbe({
                 claudeConfigDir: home.claudeConfig,
@@ -1733,14 +1689,6 @@ describe('fetchUsageData error handling', () => {
     });
 });
 
-// Guards the exact failure mode described in the code review that motivated
-// WEEKLY_MODEL_USAGE_BUCKETS (usage-types.ts): CachedUsageDataSchema and
-// UsageApiResponseSchema are hand-declared (see the comments on them in
-// usage-fetch.ts for why they can't just be generated from the registry) and
-// therefore CAN drift from it silently -- a field present in one schema but
-// missing from the other would parse fine from a live API fetch, then vanish
-// the moment that response round-trips through the on-disk cache. This test
-// makes that drift fail loudly instead.
 describe('WEEKLY_MODEL_USAGE_BUCKETS schema parity', () => {
     it('declares every registry bucket field in CachedUsageDataSchema', () => {
         const cachedKeys = new Set(Object.keys(__testing.CachedUsageDataSchema.shape));
@@ -1786,9 +1734,6 @@ describe('WEEKLY_MODEL_USAGE_BUCKETS schema parity', () => {
     });
 
     it('prefers a weekly_scoped limits[] entry over the legacy flat bucket for the same model', () => {
-        // Shape captured from a live /api/oauth/usage response (2026-07):
-        // the legacy seven_day_sonnet/seven_day_opus keys return null even
-        // when the model has real usage; the real number is in limits[].
         const sonnetBucket = WEEKLY_MODEL_USAGE_BUCKETS.find(bucket => bucket.modelDisplayName === 'Sonnet');
         if (!sonnetBucket) {
             throw new Error('expected a Sonnet entry in WEEKLY_MODEL_USAGE_BUCKETS for this test');
@@ -1830,10 +1775,6 @@ describe('WEEKLY_MODEL_USAGE_BUCKETS schema parity', () => {
     });
 
     it('handles a real live-captured response (Fable-only limits[], no matching Sonnet/Opus entry) without erroring', () => {
-        // Exact shape of a live response where only Fable has a weekly_scoped
-        // entry. Sonnet/Opus have no limits[] entry, so they fall back to
-        // their (explicitly null) legacy bucket -- 0%, per the pre-existing
-        // #343 "null bucket -> 0 usage" convention preserved by that fallback.
         const parsed = __testing.parseUsageApiResponse(JSON.stringify({
             five_hour: { utilization: 48, resets_at: '2026-07-17T13:50:00.885205+00:00' },
             seven_day: { utilization: 18, resets_at: '2026-07-23T04:00:00.885227+00:00' },
@@ -2033,15 +1974,6 @@ describe('parseUsageApiResponse limits[] fallback (#503)', () => {
             }
         ]
     });
-    // Whole-bucket null (five_hour/seven_day explicitly null, not merely
-    // absent) is indistinguishable between an Enterprise account with no
-    // rate-limit window (#343, correctly pinned to 0%) and a migrated
-    // account whose flat buckets were hollowed out to null alongside a live
-    // limits[] (#503). getUsageApiBucketUtilization(null) intentionally
-    // returns 0 (the #343 rule) even though resets_at still falls back to
-    // limits[] here - this is a known, accepted limitation: the parser
-    // cannot tell the two cases apart from the payload alone, so the
-    // percent stays pinned to 0 while the reset timer still advances.
     const nullBucketsWithLiveLimitsResponseBody = JSON.stringify({
         five_hour: null,
         seven_day: null,
@@ -2089,11 +2021,6 @@ describe('parseUsageApiResponse limits[] fallback (#503)', () => {
     });
 
     it('treats a model-scoped weekly limit at 0% with no resets_at as real zero usage, not a placeholder', () => {
-        // Live payloads show a weekly_scoped entry sitting at percent 0 /
-        // resets_at null until the scoped model is first used in the current
-        // window (resets_at then fills in while percent stays 0), so unlike
-        // the unscoped case above this is a real 0% reading. The reset field
-        // stays unset until the window actually starts.
         expect(parseUsageApiResponse(JSON.stringify({
             limits: [
                 {
@@ -2204,13 +2131,6 @@ describe('parseUsageApiResponse limits[] fallback (#503)', () => {
         });
     });
 
-    // Known limitation (#343 vs #503 ambiguity) - see the comment on
-    // nullBucketsWithLiveLimitsResponseBody above. This locks the current,
-    // deliberately-accepted behavior in place: whole-bucket null keeps the
-    // #343 zero-pin on percent even when a live limits[] could otherwise
-    // supply a real percentage, while resets_at still falls back to
-    // limits[] independently, which can recreate the "frozen percent, live
-    // timer" symptom from #503 for this specific payload shape.
     it('keeps percent pinned to 0 for whole-bucket null buckets even with live limits[] data, while resets_at still falls back (known #343/#503 overlap)', () => {
         expect(parseUsageApiResponse(nullBucketsWithLiveLimitsResponseBody)).toEqual({
             sessionUsage: 0,

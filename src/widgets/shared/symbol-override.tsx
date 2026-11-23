@@ -27,21 +27,16 @@ export function getSymbolKeybind(): CustomKeybind {
     return SYMBOL_KEYBIND;
 }
 
-// One editable symbol of a widget. id 'character' stores on the item's
-// character field (the pre-existing override convention); any other id is a
-// metadata key, which is how widgets with several symbols keep them apart.
 export interface SymbolSlot {
     id: string;
     label: string;
     defaultSymbol: string;
 }
 
-/** The effective symbol for an item: its character override, or the widget default. */
 export function getSymbol(item: WidgetItem, defaultSymbol: string): string {
     return item.character ?? defaultSymbol;
 }
 
-/** The symbol plus its joining space; an empty override collapses the space too. */
 export function formatSymbolPrefix(item: WidgetItem, defaultSymbol: string): string {
     const symbol = getSymbol(item, defaultSymbol);
     return symbol.length > 0 ? `${symbol} ` : '';
@@ -55,8 +50,6 @@ export function getSlotSymbol(item: WidgetItem, slot: SymbolSlot): string {
     return item.metadata?.[slot.id] ?? slot.defaultSymbol;
 }
 
-// Overrides matching the widget default are removed so untouched items stay
-// minimal. Exported for tests.
 export function setSlotSymbol(item: WidgetItem, slot: SymbolSlot, value: string): WidgetItem {
     if (slot.id === 'character') {
         if (value === slot.defaultSymbol) {
@@ -88,7 +81,6 @@ export function renderSymbolSlotsEditor(props: WidgetEditorProps, slots: SymbolS
     return <SymbolSlotsEditor {...props} slots={slots} />;
 }
 
-// Helper to get grapheme segments if Intl.Segmenter is available
 function getFirstGrapheme(str: string): string {
     if (str.length === 0) {
         return '';
@@ -100,7 +92,6 @@ function getFirstGrapheme(str: string): string {
         return segments[0]?.segment ?? '';
     }
 
-    // Fallback: just take first character
     return Array.from(str)[0] ?? '';
 }
 
@@ -125,7 +116,6 @@ const SymbolSlotsEditor: React.FC<WidgetEditorProps & { slots: SymbolSlot[] }> =
         } else if (key.backspace || key.delete) {
             setValues(values.map((value, index) => (index === selectedIndex ? '' : value)));
         } else if (shouldInsertInput(input, key)) {
-            // Take only the first grapheme (handles multi-byte emojis correctly)
             const grapheme = getFirstGrapheme(input);
             setValues(values.map((value, index) => (index === selectedIndex ? grapheme : value)));
         }

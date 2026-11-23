@@ -37,7 +37,6 @@ export class GitIsForkWidget implements Widget {
             return item.rawValue ? 'true' : 'isFork: true';
         }
 
-        // Not a fork
         if (isHidden(item, NOT_FORK_HIDEABLE_STATE.key)) {
             return null;
         }

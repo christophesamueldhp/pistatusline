@@ -141,9 +141,6 @@ describe('usage sources', () => {
     });
 });
 
-// Response shapes from the providers' own clients and reference implementations:
-// openai/codex (backend-openapi-models), MoonshotAI/kimi-cli + CodexBar fixtures,
-// zai-org/zai-coding-plugins, MiniMax-AI/cli, CodexBar/oh-my-pi (xAI billing).
 describe('provider usage parsers', () => {
     it('maps Codex rate-limit windows by their length, not their position', () => {
         expect(parseCodexUsage({
@@ -231,7 +228,6 @@ describe('provider usage parsers', () => {
             weeklyUsage: 100,
             weeklyResetAt: new Date(1790500000000).toISOString()
         });
-        // Bad or pay-as-you-go keys still answer HTTP 200, with an error status.
         expect(parseMinimaxUsage({ base_resp: { status_code: 1004, status_msg: 'invalid api key' } })).toEqual({ error: 'no-credentials' });
     });
 

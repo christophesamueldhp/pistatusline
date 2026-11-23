@@ -1,17 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-/**
- * What ccstatusline keeps in Claude Code's settings.json (statusLine present or not, and its
- * refreshInterval) lives here for pi, next to pistatusline's settings.json.
- */
 export interface PiStatuslineState {
     enabled: boolean;
-    /** Seconds between time-based re-renders; null renders on events only, like Claude Code. */
     refreshInterval: number | null;
 }
 
-// ccstatusline's installer writes refreshInterval 10 for Claude Code >= 2.1.97.
 const DEFAULT_STATE: PiStatuslineState = { enabled: true, refreshInterval: 10 };
 
 export function readState(file: string): PiStatuslineState {

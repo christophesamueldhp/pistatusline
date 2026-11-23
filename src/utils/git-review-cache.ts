@@ -60,10 +60,10 @@ function readField(entry: Record<string, unknown>, key: string): string {
     return typeof value === 'string' ? value.toUpperCase() : '';
 }
 
-// Classify a single gh statusCheckRollup entry. CheckRun entries carry a
-// `status` (COMPLETED once done) plus a `conclusion`; older StatusContext
-// entries carry only a `state`. NEUTRAL/SKIPPED are non-blocking noise and
-// map to `ignored` so they drop out of the displayed counts.
+// Classifies one gh statusCheckRollup entry. A CheckRun entry has a `status`,
+// which is COMPLETED once done, and a `conclusion`. An older StatusContext
+// entry has only a `state`. NEUTRAL and SKIPPED do not block, so they map to
+// `ignored` and are left out of the displayed counts.
 function classifyCheck(entry: Record<string, unknown>): CiCheckKind {
     if (typeof entry.status === 'string') {
         if (entry.status.toUpperCase() !== 'COMPLETED')
@@ -136,9 +136,9 @@ export interface GitReviewCacheDeps {
     now: typeof Date.now;
 }
 
-// pistatusline: ccstatusline re-runs its own CLI (process.argv[1]) to refresh in the
-// background; inside pi that is pi's CLI, so the refresh script is set explicitly and no
-// refresh is spawned until it is.
+// pistatusline: ccstatusline runs its own CLI again, from process.argv[1], to refresh in the
+// background. Inside pi that is pi's CLI, so the refresh script is set explicitly, and no
+// refresh is spawned until it is set.
 let refreshScriptPath: string | undefined;
 
 export function setGitReviewRefreshScript(scriptPath: string): void {
@@ -223,8 +223,6 @@ function isGitReviewData(value: unknown): value is GitReviewData {
 
 function decodeCache(content: string): Omit<CachedGitReviewData, 'stale'> | 'miss' {
     if (content.length === 0) {
-        // v2.2.24 and earlier represented a cached "no PR" result as an
-        // empty file. A missing PR also implies that no CI checks can exist.
         return { data: null, checksQueried: true };
     }
 
@@ -242,9 +240,6 @@ function decodeCache(content: string): Omit<CachedGitReviewData, 'stale'> | 'mis
     }
 
     if (isGitReviewData(parsed)) {
-        // Legacy cache files stored GitReviewData directly. The presence of
-        // checks proves the old lookup included CI data; absence is treated
-        // as metadata-only because an empty rollup was previously omitted.
         return {
             data: parsed,
             checksQueried: parsed.checks !== undefined
@@ -292,7 +287,6 @@ function writeCache(
         };
         deps.writeFileSync(cachePath, JSON.stringify(stored), 'utf-8');
     } catch {
-        // Best-effort caching
     }
 }
 
@@ -322,8 +316,6 @@ function resolveSshHostAlias(host: string, deps: GitReviewCacheDeps): string {
             }
         }
     } catch {
-        // Leave the parsed remote host unchanged when ssh is unavailable or
-        // cannot resolve the alias.
     }
 
     return host.toLowerCase();
@@ -370,8 +362,6 @@ function getOriginRepoRef(cwd: string, deps: GitReviewCacheDeps): string | null 
     return url ? toHttpsRepoRef(url, deps) : null;
 }
 
-// Self-hosted hosts that name neither forge are resolved by probing each CLI's
-// `auth status --hostname <host>` and keeping those that are authed.
 function getProviderCandidates(cwd: string, deps: GitReviewCacheDeps): GitReviewProvider[] {
     const host = getOriginHost(cwd, deps);
     if (!host) {
@@ -597,7 +587,7 @@ function fetchFromProvider(
         if (unpinned) {
             return unpinned;
         }
-    } catch { /* fall through */ }
+    } catch { }
 
     if (repoRef) {
         return fetch(repoRef);
@@ -631,11 +621,9 @@ export function fetchGitReviewData(
                 writeCache(cachePath, data, includeChecks, deps);
                 return data;
             }
-        } catch { /* try next provider */ }
+        } catch { }
     }
 
-    // Keep useful stale data on transient refresh failures. A later statusline
-    // invocation will schedule another refresh because its mtime stays stale.
     if (cached !== 'miss' && cached.data !== null) {
         return cached.data;
     }
@@ -652,7 +640,6 @@ function releaseRefreshLock(lockPath: string, deps: GitReviewCacheDeps): void {
     try {
         deps.unlinkSync(lockPath);
     } catch {
-        // Another process may already have cleaned up a stale lock.
     }
 }
 
@@ -756,8 +743,6 @@ export function refreshGitReviewCacheFromCli(
     try {
         fetchGitReviewData(cwd, deps, options);
     } finally {
-        // Only unlink the path derived from the supplied repository. This
-        // keeps the internal CLI mode from becoming an arbitrary file delete.
         if (lockPath === expectedLockPath) {
             releaseRefreshLock(lockPath, deps);
         }

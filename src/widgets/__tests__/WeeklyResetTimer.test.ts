@@ -128,7 +128,6 @@ describe('WeeklyResetTimerWidget', () => {
             remainingPercent: 65
         });
 
-        // 35% of 16 cells is 5.6, past the half-cell mark, so the 6th cell fills.
         expect(render(widget, item, { usageData: {} })).toBe('Weekly Reset [██████░░░░░░░░░░] 35.0%');
     });
 
@@ -154,8 +153,6 @@ describe('WeeklyResetTimerWidget', () => {
         expect(new WeeklyResetTimerWidget().getHideableStates().map(state => state.key)).toEqual(['no-data']);
     });
 
-    // One state covers both placeholders, since either means the same thing to
-    // a reader: the widget has nothing to report yet.
     it.each([
         ['a usage error', { error: 'timeout' as const }],
         ['no data at all', {}]

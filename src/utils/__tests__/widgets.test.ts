@@ -153,9 +153,6 @@ describe('legacy widget type aliases', () => {
 });
 
 describe('hideable state keybind reservation', () => {
-    // Widgets vary their keybinds by display mode, so an item-free call sees
-    // only one branch. These cover the metadata the usage and timer widgets
-    // branch on, so a bind offered in just one mode still gets caught.
     const KEYBIND_MODE_PROBES: (Record<string, string> | undefined)[] = [
         undefined,
         {},
@@ -185,9 +182,6 @@ describe('hideable state keybind reservation', () => {
             }
 
             for (const metadata of KEYBIND_MODE_PROBES) {
-                // The items editor appends the shared hide keybind last and
-                // keybind matching takes the first hit, so a widget-level
-                // binding would shadow the hide editor
                 const item = metadata === undefined ? undefined : { id: '1', type, metadata };
                 const keys = (widget?.getCustomKeybinds?.(item) ?? []).map(keybind => keybind.key);
                 expect(`${type}/${JSON.stringify(metadata)} binds ${keys.includes(reservedKey) ? reservedKey : 'nothing reserved'}`)

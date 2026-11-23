@@ -232,7 +232,6 @@ export const RefreshIntervalMenu: React.FC<RefreshIntervalMenuProps> = ({
                 setRefreshInput(refreshInput.slice(0, -1));
                 setValidationError(null);
             } else if (key.delete) {
-                // No cursor position in simple input
             } else if (shouldInsertInput(input, key) && /\d/.test(input)) {
                 const newValue = refreshInput + input;
                 if (newValue.length <= 2) {
@@ -265,7 +264,6 @@ export const RefreshIntervalMenu: React.FC<RefreshIntervalMenuProps> = ({
                 setTtlInput(ttlInput.slice(0, -1));
                 setValidationError(null);
             } else if (key.delete) {
-                // No cursor position in simple input
             } else if (shouldInsertInput(input, key) && /\d/.test(input)) {
                 const newValue = ttlInput + input;
                 if (newValue.length <= field.maxInputLength) {

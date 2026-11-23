@@ -123,8 +123,6 @@ describe('config utilities', () => {
         expect(Array.isArray(onDisk.lines)).toBe(true);
         expect(settings.gitCacheTtlSeconds).toBe(5);
         expect((onDisk as { gitCacheTtlSeconds?: number }).gitCacheTtlSeconds).toBe(5);
-        // Custom command caching is opt-in, so an untouched install keeps running
-        // the command on every repaint.
         expect(settings.customCommandCacheTtlSeconds).toBe(0);
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             expect.stringContaining('Default settings written to')
@@ -230,16 +228,12 @@ describe('config utilities', () => {
 
         const settings = await loadSettings();
 
-        // Defaults are returned in memory.
         expect(settings.version).toBe(CURRENT_VERSION);
 
-        // The invalid file is left exactly as the user wrote it (not overwritten).
         expect(fs.readFileSync(settingsPath, 'utf-8')).toBe('{ invalid json');
 
-        // No backup is created: recovery is non-destructive, so the original is the backup.
         expect(fs.existsSync(backupPath)).toBe(false);
 
-        // A diagnostic is still emitted.
         expect(consoleErrorSpy).toHaveBeenCalledWith(
             expect.stringContaining('Failed to parse settings.json')
         );
@@ -265,8 +259,6 @@ describe('config utilities', () => {
     it('uses defaults in memory when schema validation fails', async () => {
         const { settingsPath, backupPath, configDir } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
-        // Has a version (skips v1 branch), version === CURRENT_VERSION (no migration),
-        // but `lines: 42` is not an array, so SettingsSchema validation fails.
         const original = JSON.stringify({ version: CURRENT_VERSION, lines: 42 });
         fs.writeFileSync(settingsPath, original, 'utf-8');
 
@@ -284,13 +276,11 @@ describe('config utilities', () => {
     it('uses defaults in memory when the settings file cannot be read', async () => {
         const { settingsPath, backupPath, configDir } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
-        // Make settings.json a directory so readFile throws (EISDIR) -> outer catch path.
         fs.mkdirSync(settingsPath, { recursive: true });
 
         const settings = await loadSettings();
 
         expect(settings.version).toBe(CURRENT_VERSION);
-        // The path is left as-is (still a directory) — nothing was written over it.
         expect(fs.statSync(settingsPath).isDirectory()).toBe(true);
         expect(fs.existsSync(backupPath)).toBe(false);
         expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -326,21 +316,15 @@ describe('config utilities', () => {
     it('does not overwrite the file when a migration produces an invalid result', async () => {
         const { settingsPath, backupPath, configDir } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
-        // A v2 config whose migrated v3 form fails schema validation: the v2->v3 migration
-        // copies fields through, so `lines: 42` survives into the v3 result and fails the schema.
         const original = JSON.stringify({ version: 2, lines: 42 });
         fs.writeFileSync(settingsPath, original, 'utf-8');
 
         const settings = await loadSettings();
 
-        // Falls back to defaults in memory.
         expect(settings.version).toBe(CURRENT_VERSION);
-        // The original file is preserved — the invalid migration was NOT written over it.
         expect(fs.readFileSync(settingsPath, 'utf-8')).toBe(original);
-        // No backup, and no temp residue from an aborted write.
         expect(fs.existsSync(backupPath)).toBe(false);
         expect(fs.readdirSync(configDir).filter(name => name.endsWith('.tmp'))).toEqual([]);
-        // The failure is recorded so the statusline can warn.
         expect(getConfigLoadError()).not.toBeNull();
     });
 
@@ -352,7 +336,6 @@ describe('config utilities', () => {
 
         await saveInstallationMetadata({ method: 'pinned' });
 
-        // The unreadable file is preserved, not overwritten with defaults+metadata.
         expect(fs.readFileSync(settingsPath, 'utf-8')).toBe(original);
         expect(fs.existsSync(backupPath)).toBe(false);
     });
@@ -390,11 +373,9 @@ describe('config utilities', () => {
 
         await saveSettings({ ...DEFAULT_SETTINGS });
 
-        // Final file is complete and valid.
         const saved = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as { version?: number };
         expect(saved.version).toBe(CURRENT_VERSION);
 
-        // No temporary write-file is left in the config directory.
         const leftovers = fs.readdirSync(configDir).filter(name => name.endsWith('.tmp'));
         expect(leftovers).toEqual([]);
     });
@@ -453,13 +434,10 @@ describe('config utilities', () => {
     it('cleans up the temp file and rethrows when the write cannot be renamed into place', async () => {
         const { settingsPath, configDir } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
-        // Make the target a directory so the final rename always fails, exercising
-        // the cleanup-on-error path in writeSettingsJson.
         fs.mkdirSync(settingsPath, { recursive: true });
 
         await expect(saveSettings({ ...DEFAULT_SETTINGS })).rejects.toThrow();
 
-        // The target is untouched and no temp file is left behind.
         expect(fs.statSync(settingsPath).isDirectory()).toBe(true);
         const leftovers = fs.readdirSync(configDir).filter(name => name.endsWith('.tmp'));
         expect(leftovers).toEqual([]);
@@ -490,7 +468,6 @@ describe('config utilities', () => {
     it('clears getConfigLoadError after loading a valid current-version config', async () => {
         const { configDir, settingsPath } = getSettingsPaths();
         fs.mkdirSync(configDir, { recursive: true });
-        // Write a valid config so we don't go through first-run path
         fs.writeFileSync(settingsPath, JSON.stringify({ version: CURRENT_VERSION, lines: [[], [], []] }), 'utf-8');
 
         await loadSettings();
@@ -499,7 +476,6 @@ describe('config utilities', () => {
     });
 
     it('leaves getConfigLoadError null on first-run (no file)', async () => {
-        // No file written — loadSettings triggers writeDefaultSettings
         await loadSettings();
 
         expect(getConfigLoadError()).toBeNull();
@@ -526,11 +502,9 @@ describe('config utilities', () => {
 
         const settings = await loadSettings();
 
-        // In-memory rewrite: legacy string is gone.
         const types = settings.lines[0]?.map(item => item.type);
         expect(types).toEqual(['model', 'git-review']);
 
-        // Load does not eagerly persist; the rewrite lands on next save.
         const onDiskBeforeSave = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as { lines: { type: string }[][] };
         expect(onDiskBeforeSave.lines[0]?.[1]?.type).toBe('git-pr');
 

@@ -116,8 +116,6 @@ describe('GitCiStatusWidget', () => {
         expect(render({ cwd: '/tmp/repo', hide: 'no-data' }, { getCachedGitReviewData: () => pr })).toBeNull();
     });
 
-    // The two gates cover different conditions, so neither may stand in for the
-    // other.
     it('keeps rendering "-" when only the no-git state is enabled', () => {
         expect(render({ cwd: '/tmp/repo', hide: 'no-git' }, { getCachedGitReviewData: () => null })).toBe('-');
     });

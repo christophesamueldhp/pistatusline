@@ -39,7 +39,6 @@ export function toggleWidgetBold(widgets: WidgetItem[], widgetId: string): Widge
 
 export function cycleWidgetDim(widgets: WidgetItem[], widgetId: string): WidgetItem[] {
     return updateWidgetById(widgets, widgetId, (widget) => {
-        // Cycle: off -> whole widget -> (...) spans only -> off
         if (widget.dim === true) {
             return {
                 ...widget,

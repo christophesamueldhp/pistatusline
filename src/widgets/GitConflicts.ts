@@ -29,8 +29,6 @@ const ZERO_HIDEABLE_STATE: HideableState = { key: 'zero', label: 'when there are
 const CONFLICT_SLOT: SymbolSlot = { id: 'character', label: 'Conflicts', defaultSymbol: '⚠' };
 const CLEAN_SLOT: SymbolSlot = { id: 'symbolClean', label: 'Clean', defaultSymbol: '✓' };
 
-// Hiding the zero state is handled by the shared hideable-state system. This
-// setting only controls how a visible conflict-free tree is represented.
 const ZERO_DISPLAYS = ['count', 'clean'] as const;
 type ZeroDisplay = typeof ZERO_DISPLAYS[number];
 
@@ -43,7 +41,6 @@ function getZeroDisplay(item: WidgetItem): ZeroDisplay {
     return (ZERO_DISPLAYS as readonly string[]).includes(value ?? '') ? (value as ZeroDisplay) : DEFAULT_ZERO_DISPLAY;
 }
 
-// The default is stored as the absence of the key, so untouched items keep no metadata.
 function cycleZeroDisplay(item: WidgetItem): WidgetItem {
     const current = getZeroDisplay(item);
     const next = ZERO_DISPLAYS[(ZERO_DISPLAYS.indexOf(current) + 1) % ZERO_DISPLAYS.length] ?? DEFAULT_ZERO_DISPLAY;

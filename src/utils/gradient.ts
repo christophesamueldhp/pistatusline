@@ -23,15 +23,7 @@ interface ParsedEscapeSequence {
     sequence: string;
 }
 
-// Named gradient presets, addressable as `gradient:<name>`. The stop lists mirror
-// the named gradients shipped by `gradient-string` (pulled in transitively through
-// `ink-gradient`), reproduced here as raw hex so the renderer can interpolate them
-// without going through the React/Ink layer.
-// Source: gradient-string (MIT) - https://github.com/bokub/gradient-string
-//
-// `gradient-string` renders `rainbow` and `pastel` via a full HSV hue-spin. We
-// interpolate in OKLab (no hue-spin), so those two are re-expressed as explicit
-// multi-stop hue wheels that sweep the spectrum directly.
+// Source: gradient-string, MIT license, https://github.com/bokub/gradient-string
 export const GRADIENT_PRESETS: Record<string, string[]> = {
     atlas: ['#feac5e', '#c779d0', '#4bc0c8'],
     cristal: ['#bdfff3', '#4ac29a'],
@@ -50,23 +42,10 @@ export const GRADIENT_PRESETS: Record<string, string[]> = {
 
 export const GRADIENT_PRESET_NAMES: string[] = Object.keys(GRADIENT_PRESETS);
 
-// True when a color value is a gradient spec (`gradient:…`). Centralizes the
-// prefix check that callers use to branch before parsing.
 export function isGradientSpec(value: string | undefined): boolean {
     return value?.startsWith(GRADIENT_PREFIX) ?? false;
 }
 
-// Parse a gradient foreground spec into RGB color stops. Three forms are
-// accepted, all prefixed `gradient:`
-//   - named preset            `gradient:atlas`              (case-insensitive)
-//   - dash-separated stops     `gradient:RRGGBB-RRGGBB[-…]`
-//   - comma-separated stops    `gradient:RRGGBB,RRGGBB[,…]`
-// The comma vs dash choice is just the delimiter: a body containing a comma splits
-// on commas, otherwise on dashes. Each stop is resolved by `resolveStopToRgb`, so
-// `hex:RRGGBB`, `#RRGGBB`, and bare `RRGGBB` are all valid stop syntaxes in EITHER
-// form (e.g. `gradient:hex:FF0000-hex:0000FF` parses fine) — the comment examples
-// just show the common pairings. Returns null when the value is not a gradient spec
-// or resolves to fewer than two usable stops.
 export function parseGradientSpec(value: string | undefined): Rgb[] | null {
     if (!value?.startsWith(GRADIENT_PREFIX)) {
         return null;
@@ -124,8 +103,6 @@ function linearToSrgb(channel: number): number {
     return Math.round(Math.min(1, Math.max(0, value)) * 255);
 }
 
-// sRGB -> OKLab. Interpolating in OKLab keeps blends perceptually even and
-// avoids the muddy mid-tones of naive sRGB interpolation.
 function rgbToOklab(rgb: Rgb): Oklab {
     const lr = srgbToLinear(rgb.r);
     const lg = srgbToLinear(rgb.g);
@@ -162,8 +139,6 @@ function oklabToRgb(lab: Oklab): Rgb {
     };
 }
 
-// Sample the gradient at position t in [0, 1], interpolating in OKLab between
-// the two bracketing stops.
 export function sampleGradient(stops: Rgb[], t: number): Rgb {
     const first = stops[0];
     if (first === undefined) {
@@ -193,8 +168,6 @@ export function sampleGradient(stops: Rgb[], t: number): Rgb {
     });
 }
 
-// Map an RGB color to the nearest xterm-256 palette index (6x6x6 cube plus the
-// grayscale ramp) for ansi256 terminals.
 export function rgbToAnsi256(rgb: Rgb): number {
     if (rgb.r === rgb.g && rgb.g === rgb.b) {
         if (rgb.r < 8) {
@@ -212,9 +185,6 @@ export function rgbToAnsi256(rgb: Rgb): number {
         + Math.round((rgb.b / 255) * 5);
 }
 
-// Build the SGR foreground escape for the gradient color at position t. ansi16
-// has too few colors for a gradient, so callers should degrade before this; it
-// falls back to the 256-color path defensively.
 export function gradientCodeAt(
     stops: Rgb[],
     t: number,
@@ -323,35 +293,6 @@ function consumeEscapeSequence(input: string, index: number): ParsedEscapeSequen
     return null;
 }
 
-// Apply a gradient across the visible characters of a single widget's text,
-// emitting one opening color code per non-whitespace character. Whitespace is
-// passed through uncolored and does not consume a gradient step, and ANSI/OSC
-// escape sequences pass through untouched. The gradient restarts at t=0 for
-// each call, so every widget spans its own self-contained sweep.
-//
-// No trailing reset is emitted here - the caller appends `\x1b[39m`. At ansi16
-// (or for empty/blank text) the input is returned unchanged.
-//
-// KNOWN LIMITATION — code points, not grapheme clusters.
-// This walks `text` with `for…of`, which iterates Unicode *code points*, whereas
-// the whole-line `applyLineGradient` (in ansi.ts) walks *display clusters* via
-// `consumeDisplayCluster`. For plain text (ASCII, single-code-point emoji) the two
-// agree. They diverge only for multi-code-point grapheme clusters — ZWJ sequences
-// (👩‍👩‍👧), variation selectors (✏️), regional-indicator flag pairs (🇺🇸): this
-// function assigns a separate gradient step to each code point in the cluster
-// (compressing the sweep there) and emits color codes onto zero-width joiner /
-// selector code points that render nothing. The visible glyph still draws; the
-// cosmetic effect is a locally faster sweep plus a few inert escape bytes.
-//
-// This divergence is deliberately tolerated rather than fixed:
-//   1. Per-widget gradient text is short, author-controlled widget content — ZWJ
-//      emoji are vanishingly rare there (the whole-line path, which is far more
-//      likely to carry arbitrary cwd/branch text, IS cluster-correct).
-//   2. The correct walker (`consumeDisplayCluster`) lives in ansi.ts, and ansi.ts
-//      already imports from this module (gradient.ts) — depending on it back would
-//      introduce a circular import. Unifying the two would require first extracting
-//      the cluster walker into a third, dependency-free module. That refactor is a
-//      tracked follow-up, not a blocker for correct rendering of real status lines.
 export function applyGradientToText(
     text: string,
     stops: Rgb[],

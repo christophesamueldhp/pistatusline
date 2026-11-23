@@ -71,34 +71,26 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     const widgetCatalog = getWidgetCatalog(settings);
     const widgetCategories = ['All', ...getWidgetCatalogCategories(widgetCatalog)];
 
-    // Get a unique background color for powerline mode
     const getUniqueBackgroundColor = (insertIndex: number): string | undefined => {
-        // Only apply background colors if powerline is enabled and NOT using custom theme
         if (!settings.powerline.enabled || settings.powerline.theme === 'custom') {
             return undefined;
         }
 
-        // Get all available background colors (excluding black for better visibility)
         const bgColors = getBackgroundColorsForPowerline();
 
-        // Get colors of adjacent items
         const prevWidget = insertIndex > 0 ? widgets[insertIndex - 1] : null;
         const nextWidget = insertIndex < widgets.length ? widgets[insertIndex] : null;
 
         const prevBg = prevWidget?.backgroundColor;
         const nextBg = nextWidget?.backgroundColor;
 
-        // Filter out colors that match neighbors
         const availableColors = bgColors.filter(color => color !== prevBg && color !== nextBg);
 
-        // If we have available colors, pick one randomly
         if (availableColors.length > 0) {
             const randomIndex = Math.floor(Math.random() * availableColors.length);
             return availableColors[randomIndex];
         }
 
-        // Fallback: if somehow both neighbors use all 14 colors (impossible with 2 neighbors),
-        // just pick any color that's different from the previous
         return bgColors.find(c => c !== prevBg) ?? bgColors[0];
     };
 
@@ -116,18 +108,10 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     const getCustomKeybindsForWidget = (widgetImpl: Widget, widget: WidgetItem): CustomKeybind[] => {
         const keybinds = widgetImpl.getCustomKeybinds ? [...widgetImpl.getCustomKeybinds(widget)] : [];
 
-        // Numeric widgets get the precision cycle here rather than in the color
-        // menu, so every non-color override stays on this screen and stays
-        // reachable while a powerline theme is active.
         if (widgetImpl.supportsNumberFormat?.()) {
             keybinds.push(getNumberFormatKeybind());
         }
 
-        // Widgets declaring hideable states share a single (h)ide… keybind
-        // that opens the hide-state checklist instead of per-widget toggles.
-        // Such widgets must leave 'h' unbound: keybind matching takes the
-        // first hit, so a widget-level 'h' would shadow this one (enforced by
-        // a registry-wide test in utils/__tests__/widgets.test.ts)
         if ((widgetImpl.getHideableStates?.().length ?? 0) > 0) {
             keybinds.push(getHideKeybind());
         }
@@ -188,14 +172,12 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     const isSeparator = currentWidget?.type === 'separator';
     const isFlexSeparator = currentWidget?.type === 'flex-separator';
 
-    // Check if widget supports raw value using registry
     let canToggleRaw = false;
     let customKeybinds: CustomKeybind[] = [];
     if (currentWidget && !isSeparator && !isFlexSeparator) {
         const widgetImpl = getWidget(currentWidget.type);
         if (widgetImpl) {
             canToggleRaw = widgetImpl.supportsRawValue();
-            // Get custom keybinds from the widget
             customKeybinds = getCustomKeybindsForWidget(widgetImpl, currentWidget);
         } else {
             canToggleRaw = false;
@@ -209,12 +191,10 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     const hasWidgets = widgets.length > 0;
 
     useInput((input, key) => {
-        // Skip input if custom editor is active
         if (customEditorWidget) {
             return;
         }
 
-        // Skip input handling when clear confirmation is active - let ConfirmDialog handle it
         if (showClearConfirm) {
             return;
         }
@@ -264,7 +244,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     });
 
     const getWidgetDisplay = (widget: WidgetItem) => {
-        // Special handling for separators (not widgets)
         if (widget.type === 'separator') {
             const char = widget.character ?? '|';
             const charDisplay = char === ' ' ? '(space)' : char;
@@ -274,14 +253,11 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
             return 'Flex Separator';
         }
 
-        // Handle regular widgets - delegate to widget for display
         const widgetImpl = getWidget(widget.type);
         if (widgetImpl) {
             const { displayText, modifierText } = widgetImpl.getEditorDisplay(widget);
-            // Return plain text without colors
             return displayText + (modifierText ? ` ${modifierText}` : '');
         }
-        // Unknown widget type
         return `Unknown: ${widget.type}`;
     };
 
@@ -308,7 +284,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
         ? (pickerEntries.find(entry => entry.type === widgetPicker.selectedType) ?? pickerEntries[0])
         : null;
 
-    // Build main help text (without custom keybinds)
     let helpText = hasWidgets
         ? '↑↓ select, ←→ open type picker'
         : '(a)dd via picker, (i)nsert via picker';
@@ -329,7 +304,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
     }
     helpText += ', ESC back';
 
-    // Build custom keybinds text
     const customKeybindsText = customKeybinds.map(kb => kb.label).join(', ');
     const pickerActionLabel = widgetPicker?.action === 'add'
         ? 'Add Widget'
@@ -337,8 +311,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
             ? 'Insert Widget'
             : 'Change Widget Type';
 
-    // The hide-state checklist is shared across all widgets that declare
-    // hideable states, so it renders here rather than via widget renderEditor
     if (customEditorWidget?.action === EDIT_HIDE_STATES_ACTION) {
         return (
             <HideStatesEditor
@@ -350,7 +322,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
         );
     }
 
-    // If custom editor is active, render it instead of the normal UI
     if (customEditorWidget?.impl.renderEditor) {
         return customEditorWidget.impl.renderEditor({
             widget: customEditorWidget.widget,
@@ -618,7 +589,6 @@ export const ItemsEditor: React.FC<ItemsEditorProps> = ({ widgets, onUpdate, onB
                                     </Box>
                                 );
                             })}
-                            {/* Display description for selected widget */}
                             {currentWidget && (
                                 <Box marginTop={1} paddingLeft={2}>
                                     <Text dimColor>

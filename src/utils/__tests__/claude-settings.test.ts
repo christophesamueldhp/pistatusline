@@ -672,15 +672,11 @@ describe('getVoiceConfig', () => {
         });
 
         it('treats malformed JSON as "no override"', () => {
-            // Malformed file is silently skipped; with no other layers, no override is found
-            // and we fall back to the Claude Code default of `enabled: false`. The file's mere
-            // existence still flips the overall result away from `null`.
             writeRawClaudeSettings('{ this is not json');
             expect(getVoiceConfig(testProjectDir)).toEqual({ enabled: false });
         });
 
         it('treats unexpected voice shape as "no override"', () => {
-            // voice is a string instead of an object — Zod schema fails, no override extracted.
             writeRawClaudeSettings(JSON.stringify({ voice: 'enabled' }));
             expect(getVoiceConfig(testProjectDir)).toEqual({ enabled: false });
         });
@@ -713,8 +709,6 @@ describe('getVoiceConfig', () => {
         });
 
         it('layer without voice.enabled does not override a lower layer', () => {
-            // user-global sets enabled:true, project layer has voice but no `enabled` field
-            // → project should NOT clobber the user-global value.
             writeRawClaudeSettings(JSON.stringify({ voice: { enabled: true } }));
             writeRawProjectSettings(JSON.stringify({ voice: { mode: 'hold' } }));
             expect(getVoiceConfig(testProjectDir)).toEqual({ enabled: true });
@@ -732,7 +726,6 @@ describe('getVoiceConfig', () => {
         });
 
         it('returns null when no candidate file exists in any layer', () => {
-            // testProjectDir is freshly created and empty, testClaudeConfigDir too
             expect(getVoiceConfig(testProjectDir)).toBeNull();
         });
 
@@ -745,8 +738,6 @@ describe('getVoiceConfig', () => {
         });
 
         it('falls through layers without voice.enabled until it finds a defined value', () => {
-            // user-global defines enabled:true; the three higher-priority layers exist but
-            // contribute nothing usable (no voice field, only mode, or unrelated keys).
             writeRawClaudeSettings(JSON.stringify({ voice: { enabled: true } }));
             writeRawUserLocalSettings(JSON.stringify({ effortLevel: 'high' }));
             writeRawProjectSettings(JSON.stringify({ voice: { mode: 'hold' } }));

@@ -18,10 +18,8 @@ import {
     saveInstallationMetadata
 } from './config';
 
-// Re-export for backward compatibility
 export type { ClaudeSettings };
 
-// Use fs.promises directly
 const readFile = fs.promises.readFile;
 const writeFile = fs.promises.writeFile;
 const mkdir = fs.promises.mkdir;
@@ -30,7 +28,6 @@ export const CCSTATUSLINE_COMMANDS = {
     AUTO_NPX: 'npx -y ccstatusline@latest',
     AUTO_BUNX: 'bunx -y ccstatusline@latest',
     GLOBAL: 'ccstatusline',
-    // Backward-compatible names for existing callers/tests.
     NPM: 'npx -y ccstatusline@latest',
     BUNX: 'bunx -y ccstatusline@latest',
     SELF_MANAGED: 'ccstatusline'
@@ -58,14 +55,12 @@ export interface PackageCommandAvailability {
 
 export function isKnownCommand(command: string): boolean {
     const prefixes = [CCSTATUSLINE_COMMANDS.AUTO_NPX, CCSTATUSLINE_COMMANDS.AUTO_BUNX, CCSTATUSLINE_COMMANDS.GLOBAL];
-    // Also match local development commands (e.g., "bun run /path/to/ccstatusline.ts")
     return prefixes.some(prefix => command === prefix || command.startsWith(`${prefix} --config `))
         || /(?:^|[\s"'\\/])ccstatusline\.ts(?=$|[\s"'])/.test(command);
 }
 
 function needsQuoting(filePath: string): boolean {
     if (process.platform === 'win32') {
-        // cmd.exe-safe set of characters that require quoting.
         return /[\s&()<>|^"]/.test(filePath);
     }
 
@@ -84,44 +79,28 @@ function quotePathIfNeeded(filePath: string): string {
     return `'${filePath.replace(/'/g, '\'\\\'\'')}'`;
 }
 
-/**
- * Determines the Claude config directory, checking CLAUDE_CONFIG_DIR environment variable first,
- * then falling back to the default ~/.claude directory.
- */
 export function getClaudeConfigDir(): string {
     const envConfigDir = process.env.CLAUDE_CONFIG_DIR;
 
     if (envConfigDir) {
         try {
-            // Validate that the path is absolute and reasonable
             const resolvedPath = path.resolve(envConfigDir);
 
-            // Check if directory exists or can be created
             if (fs.existsSync(resolvedPath)) {
                 const stats = fs.statSync(resolvedPath);
                 if (stats.isDirectory()) {
                     return resolvedPath;
                 }
             } else {
-                // Directory doesn't exist yet, but we can try to use it
-                // (mkdir will be called later when saving)
                 return resolvedPath;
             }
         } catch {
-            // Fall through to default on any error
         }
     }
 
-    // Default fallback
     return path.join(os.homedir(), '.claude');
 }
 
-/**
- * Gets the full path to Claude Code's .claude.json account state file.
- *
- * Claude Code stores this as a sibling of the default ~/.claude directory, but
- * inside CLAUDE_CONFIG_DIR when a valid config directory override is active.
- */
 export function getClaudeJsonPath(): string {
     const configDir = getClaudeConfigDir();
     const envConfigDir = process.env.CLAUDE_CONFIG_DIR;
@@ -133,16 +112,10 @@ export function getClaudeJsonPath(): string {
     return path.join(path.dirname(configDir), '.claude.json');
 }
 
-/**
- * Gets the full path to the Claude settings.json file.
- */
 export function getClaudeSettingsPath(): string {
     return path.join(getClaudeConfigDir(), 'settings.json');
 }
 
-/**
- * Creates a backup of the current Claude settings file.
- */
 async function backupClaudeSettings(suffix = '.bak'): Promise<string | null> {
     const settingsPath = getClaudeSettingsPath();
     const backupPath = settingsPath + suffix;
@@ -165,7 +138,6 @@ export function loadClaudeSettingsSync(options: LoadClaudeSettingsOptions = {}):
     const { logErrors = true } = options;
     const settingsPath = getClaudeSettingsPath();
 
-    // File doesn't exist - return empty object
     if (!fs.existsSync(settingsPath)) {
         return {};
     }
@@ -185,7 +157,6 @@ export async function loadClaudeSettings(options: LoadClaudeSettingsOptions = {}
     const { logErrors = true } = options;
     const settingsPath = getClaudeSettingsPath();
 
-    // File doesn't exist - return empty object
     if (!fs.existsSync(settingsPath)) {
         return {};
     }
@@ -207,7 +178,6 @@ export async function saveClaudeSettings(
     const settingsPath = getClaudeSettingsPath();
     const dir = path.dirname(settingsPath);
 
-    // Backup settings before overwriting
     await backupClaudeSettings();
 
     await mkdir(dir, { recursive: true });
@@ -220,7 +190,7 @@ export async function isInstalled(): Promise<boolean> {
     try {
         settings = await loadClaudeSettings({ logErrors: false });
     } catch {
-        return false; // Can't determine if installed, assume not
+        return false;
     }
     const command = settings.statusLine?.command ?? '';
 
@@ -274,7 +244,6 @@ export function getClaudeCodeVersion(): string | null {
             timeout: 5000,
             windowsHide: true
         }).trim();
-        // Output is like "2.1.97 (Claude Code)" — extract the version number
         const match = /^(\d+\.\d+\.\d+)/.exec(output);
         return match?.[1] ?? null;
     } catch {
@@ -302,7 +271,7 @@ export function isClaudeCodeVersionAtLeast(minVersion: string): boolean {
         }
     }
 
-    return true; // equal
+    return true;
 }
 
 function buildCommand(baseCommand: string): string {
@@ -414,7 +383,6 @@ export async function installStatusLine({
         settings = {};
     }
 
-    // Update settings with our status line (confirmation already handled in TUI)
     const existingRefreshInterval = settings.statusLine?.refreshInterval;
     settings.statusLine = {
         type: 'command',
@@ -422,7 +390,6 @@ export async function installStatusLine({
         padding: 0
     };
 
-    // Only set refreshInterval if Claude Code version supports it (>=2.1.97)
     if (supportsRefreshInterval) {
         settings.statusLine.refreshInterval = existingRefreshInterval ?? 10;
     }
@@ -446,7 +413,7 @@ export async function uninstallStatusLine(): Promise<void> {
         settings = await loadClaudeSettings({ logErrors: false });
     } catch {
         console.error('Warning: Could not read existing Claude settings.');
-        return; // if we can't read, return... what are we uninstalling?
+        return;
     }
 
     if (settings.statusLine) {
@@ -460,7 +427,6 @@ export async function uninstallStatusLine(): Promise<void> {
         const { removeManagedHooks } = await import('./hooks');
         await removeManagedHooks();
     } catch {
-        // Ignore hook cleanup failures during uninstall
     }
 }
 
@@ -469,7 +435,7 @@ export async function getExistingStatusLine(): Promise<string | null> {
         const settings = await loadClaudeSettings({ logErrors: false });
         return settings.statusLine?.command ?? null;
     } catch {
-        return null; // Can't read settings, return null
+        return null;
     }
 }
 
@@ -509,7 +475,6 @@ const VoiceConfigSchema = z.object({ enabled: z.boolean().optional() });
 function getLayeredSettingsCandidatePathsByPriority(cwd: string): string[] {
     const userDir = getClaudeConfigDir();
     const projectDir = path.join(cwd, '.claude');
-    // Highest priority first — `getVoiceConfig` returns on the first defined override.
     const candidates = [
         path.join(projectDir, 'settings.local.json'),
         path.join(projectDir, 'settings.json'),
@@ -519,12 +484,6 @@ function getLayeredSettingsCandidatePathsByPriority(cwd: string): string[] {
     return Array.from(new Set(candidates));
 }
 
-/**
- * Picks the directory whose `.claude` layer `getVoiceConfig` and `getSandboxConfig` read.
- *
- * The project directory is tried first because that is where the project settings
- * layers live; the session cwd can sit anywhere beneath it.
- */
 export function resolveClaudeConfigCwd(context: RenderContext): string | undefined {
     const candidates = [
         context.data?.workspace?.project_dir,
@@ -545,8 +504,6 @@ function tryReadVoiceLayer(filePath: string): VoiceLayerResult {
     try {
         content = fs.readFileSync(filePath, 'utf-8');
     } catch (error) {
-        // ENOENT is the common case (file just doesn't exist on this layer);
-        // any other I/O error is treated the same — caller has no recovery path.
         const isMissing = (error as NodeJS.ErrnoException).code === 'ENOENT';
         return { fileExisted: !isMissing, enabled: undefined };
     }
@@ -560,32 +517,10 @@ function tryReadVoiceLayer(filePath: string): VoiceLayerResult {
         const result = VoiceConfigSchema.safeParse(voice);
         return { fileExisted: true, enabled: result.success ? result.data.enabled : undefined };
     } catch {
-        // Malformed JSON — file exists but contributes no override.
         return { fileExisted: true, enabled: undefined };
     }
 }
 
-/**
- * Reads the effective `voice.enabled` setting from Claude Code's layered configuration.
- *
- * Claude Code merges settings from up to four files, in increasing order of priority:
- *   1. <user>/settings.json
- *   2. <user>/settings.local.json
- *   3. <cwd>/.claude/settings.json
- *   4. <cwd>/.claude/settings.local.json
- *
- * The user dir respects `CLAUDE_CONFIG_DIR` (fallback `~/.claude`).
- * Lookup walks layers from highest priority to lowest and returns on the first
- * one that defines `voice.enabled` — so the typical case (one file with the field)
- * costs a single read instead of four.
- *
- * - Returns `null` if no candidate file exists (Claude Code never initialised).
- * - Returns `{ enabled: false }` if files exist but none defines `voice.enabled`
- *   (Claude Code's default — `/voice` not yet touched).
- * - Returns `{ enabled: <bool> }` reflecting the highest-priority override otherwise.
- *
- * The `voice.mode` (`hold` / `toggle`) field is not exposed; widgets only need the on/off state.
- */
 export function getVoiceConfig(cwd: string = process.cwd()): { enabled: boolean } | null {
     let anyFileExisted = false;
     for (const filePath of getLayeredSettingsCandidatePathsByPriority(cwd)) {
@@ -607,8 +542,6 @@ function tryReadSandboxLayer(filePath: string): { fileExisted: boolean; enabled:
     try {
         content = fs.readFileSync(filePath, 'utf-8');
     } catch (error) {
-        // ENOENT is the common case (file just doesn't exist on this layer);
-        // any other I/O error is treated the same — caller has no recovery path.
         const isMissing = (error as NodeJS.ErrnoException).code === 'ENOENT';
         return { fileExisted: !isMissing, enabled: undefined };
     }
@@ -622,25 +555,10 @@ function tryReadSandboxLayer(filePath: string): { fileExisted: boolean; enabled:
         const result = SandboxConfigSchema.safeParse(sandbox);
         return { fileExisted: true, enabled: result.success ? result.data.enabled : undefined };
     } catch {
-        // Malformed JSON — file exists but contributes no override.
         return { fileExisted: true, enabled: undefined };
     }
 }
 
-/**
- * Reads the effective `sandbox.enabled` setting — Claude Code's bash sandbox mode —
- * from the same layered configuration as `getVoiceConfig` (project-local → project →
- * user-local → user, highest priority first; user dir respects `CLAUDE_CONFIG_DIR`).
- *
- * `/sandbox` persists its toggle to `<cwd>/.claude/settings.local.json` (the
- * highest-priority layer), so re-reading on each status refresh reflects runtime
- * toggles, not just the configured default.
- *
- * - Returns `null` if no candidate settings file exists (Claude Code never initialised).
- * - Returns `{ enabled: false }` if files exist but none defines `sandbox.enabled`
- *   (Claude Code's default — sandbox disabled).
- * - Returns `{ enabled: <bool> }` reflecting the highest-priority override otherwise.
- */
 export function getSandboxConfig(cwd: string = process.cwd()): { enabled: boolean } | null {
     let anyFileExisted = false;
     for (const filePath of getLayeredSettingsCandidatePathsByPriority(cwd)) {
@@ -660,26 +578,6 @@ const RemoteSessionFileSchema = z.object({
     bridgeSessionId: z.string().nullable().optional()
 });
 
-/**
- * Reads the per-PID session manifests Claude Code writes to `<config>/sessions/<pid>.json`
- * and returns whether the session matching `sessionId` currently has a remote-control
- * bridge attached.
- *
- * Claude Code writes one file per running interactive session. The `bridgeSessionId`
- * field is populated when remote control (e.g. the mobile/web bridge) is connected
- * for that session. Matching by `sessionId` ensures the result reflects the *current*
- * session rather than any other concurrent Claude Code process.
- *
- * Claude Code's observed behavior on disconnect: the field is set to `null` (not removed)
- * and the file is rewritten within ~1s, so the on-disconnect transition is reflected
- * promptly at the next status-line refresh.
- *
- * - Returns `null` when the sessions directory is missing or no manifest matches —
- *   widgets should hide themselves in that case rather than render a misleading "off".
- * - Returns `{ enabled: false }` when the manifest exists but `bridgeSessionId` is
- *   missing, `null`, or empty (disconnected).
- * - Returns `{ enabled: true }` when a non-empty `bridgeSessionId` is set.
- */
 export function getRemoteControlStatus(sessionId: string | undefined): { enabled: boolean } | null {
     if (!sessionId) {
         return null;

@@ -98,7 +98,6 @@ export class GitAheadBehindWidget implements Widget {
         const result = getGitAheadBehind(context);
         if (!result)
             return null;
-        // Return total divergence (ahead + behind)
         return result.ahead + result.behind;
     }
 

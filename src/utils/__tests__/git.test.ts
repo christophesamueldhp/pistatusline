@@ -311,8 +311,6 @@ describe('git utils', () => {
 
             expect(runGit('symbolic-ref --short HEAD', context)).toBe('feature/leak');
 
-            // Make the cache path a directory so the final rename always fails,
-            // exercising the cleanup-on-error path in writePersistentCache.
             const cachePath = getOnlyGitCachePath(home);
             fs.rmSync(cachePath);
             fs.mkdirSync(cachePath);
@@ -321,7 +319,6 @@ describe('git utils', () => {
             mockExecFileSync.mockReturnValueOnce('feature/leak\n');
 
             expect(runGit('symbolic-ref --short HEAD', context)).toBe('feature/leak');
-            // The blocking directory is still in place and no temp file leaked.
             expect(fs.statSync(cachePath).isDirectory()).toBe(true);
             const cacheDir = path.dirname(cachePath);
             expect(fs.readdirSync(cacheDir).filter(name => name.endsWith('.tmp'))).toEqual([]);

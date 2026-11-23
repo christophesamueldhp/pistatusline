@@ -19,9 +19,6 @@ import type { CustomCommandRequest } from '../../utils/custom-command';
 import { clearCustomCommandCache } from '../../utils/custom-command';
 import { CustomCommandWidget } from '../CustomCommand';
 
-// Mock the process boundary: echo back whatever is handed to stdin, the way
-// `cat` would. The widget output then IS the JSON it sent, so we can assert
-// exactly what the custom command received, without spawning a subprocess.
 vi.mock('child_process', () => ({
     execSync: vi.fn(),
     execFileSync: vi.fn(),
@@ -94,8 +91,6 @@ describe('CustomCommandWidget', () => {
         commandPath: 'echo'
     });
 
-    // The TTL reaches the widget through the render context, the same route the
-    // git cache TTL takes.
     const createContext = (
         terminalWidth: number | null | undefined,
         customCommandCacheTtlSeconds = 0

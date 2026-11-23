@@ -23,8 +23,8 @@ function resolveThinkingEffortFromStatusJson(context: RenderContext): ResolvedTh
     return typeof effort.level === 'string' ? normalizeThinkingEffort(effort.level) : null;
 }
 
-// pistatusline: Claude Code's settings.json effortLevel says nothing about pi; the level
-// comes from the status data (pi's thinking level) only.
+// pistatusline: Claude Code's settings.json effortLevel says nothing about pi. The level
+// comes only from pi's thinking level in the status data.
 function resolveThinkingEffortFromSettings(): ResolvedThinkingEffort | undefined {
     return undefined;
 }

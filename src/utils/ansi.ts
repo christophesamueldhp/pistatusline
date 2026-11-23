@@ -485,11 +485,6 @@ export function truncateStyledText(
     return output + ellipsis;
 }
 
-// Paint a foreground gradient across the visible characters of a styled line,
-// assigning each display cluster a color based on its column position so the
-// gradient spans the whole line. Escape sequences (SGR, OSC-8 hyperlinks) pass
-// through untouched, and visible width is unchanged, so flex/powerline layout
-// is unaffected. ansi16 has too few colors for a gradient and is left as-is.
 export function applyLineGradientSegment(
     text: string,
     stops: Rgb[],
@@ -541,11 +536,6 @@ export function applyLineGradientSegment(
     };
 }
 
-// Paint a foreground gradient across the visible characters of a styled line,
-// assigning each display cluster a color based on its column position so the
-// gradient spans the whole line. Escape sequences (SGR, OSC-8 hyperlinks) pass
-// through untouched, and visible width is unchanged, so flex/powerline layout
-// is unaffected. ansi16 has too few colors for a gradient and is left as-is.
 export function applyLineGradient(
     text: string,
     stops: Rgb[],

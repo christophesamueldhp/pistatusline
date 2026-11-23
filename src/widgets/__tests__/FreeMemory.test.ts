@@ -95,12 +95,10 @@ describe('FreeMemoryWidget', () => {
     describe('render on macOS (vm_stat)', () => {
         beforeEach(() => {
             mockPlatform.mockReturnValue('darwin');
-            mockTotalmem.mockReturnValue(16 * 1024 ** 3); // 16GB total
+            mockTotalmem.mockReturnValue(16 * 1024 ** 3);
         });
 
         it('should calculate used memory from vm_stat (active + wired)', () => {
-            // Page size 16384, active 500000 pages, wired 100000 pages
-            // Used = (500000 + 100000) * 16384 = 9,830,400,000 bytes ≈ 9.2G
             mockExecSync.mockReturnValue(`Mach Virtual Memory Statistics: (page size of 16384 bytes)
 Pages free:                              100000.
 Pages active:                            500000.
@@ -139,7 +137,7 @@ Pages wired down:                        100000.
             mockExecSync.mockImplementation(() => {
                 throw new Error('command not found');
             });
-            mockFreemem.mockReturnValue(8 * 1024 ** 3); // 8GB free -> 8GB used
+            mockFreemem.mockReturnValue(8 * 1024 ** 3);
 
             const context: RenderContext = {};
             const item: WidgetItem = { id: 'mem', type: 'free-memory', rawValue: true };
@@ -151,7 +149,7 @@ Pages wired down:                        100000.
 
         it('should fallback if vm_stat output is malformed', () => {
             mockExecSync.mockReturnValue('garbage output');
-            mockFreemem.mockReturnValue(4 * 1024 ** 3); // 4GB free -> 12GB used
+            mockFreemem.mockReturnValue(4 * 1024 ** 3);
 
             const context: RenderContext = {};
             const item: WidgetItem = { id: 'mem', type: 'free-memory', rawValue: true };
@@ -168,8 +166,8 @@ Pages wired down:                        100000.
         });
 
         it('should use total - free calculation on Linux', () => {
-            mockFreemem.mockReturnValue(8 * 1024 ** 3); // 8GB free
-            mockTotalmem.mockReturnValue(16 * 1024 ** 3); // 16GB total -> 8GB used
+            mockFreemem.mockReturnValue(8 * 1024 ** 3);
+            mockTotalmem.mockReturnValue(16 * 1024 ** 3);
 
             const context: RenderContext = {};
             const item: WidgetItem = { id: 'mem', type: 'free-memory' };
@@ -180,8 +178,8 @@ Pages wired down:                        100000.
         });
 
         it('should handle fractional gigabytes', () => {
-            mockFreemem.mockReturnValue(4.5 * 1024 ** 3); // 4.5GB free
-            mockTotalmem.mockReturnValue(32 * 1024 ** 3); // 32GB total -> 27.5GB used
+            mockFreemem.mockReturnValue(4.5 * 1024 ** 3);
+            mockTotalmem.mockReturnValue(32 * 1024 ** 3);
 
             const context: RenderContext = {};
             const item: WidgetItem = { id: 'mem', type: 'free-memory', rawValue: true };
@@ -192,8 +190,8 @@ Pages wired down:                        100000.
         });
 
         it('should handle megabyte values', () => {
-            mockFreemem.mockReturnValue(512 * 1024 ** 2); // 512MB free
-            mockTotalmem.mockReturnValue(1024 * 1024 ** 2); // 1GB total -> 512MB used
+            mockFreemem.mockReturnValue(512 * 1024 ** 2);
+            mockTotalmem.mockReturnValue(1024 * 1024 ** 2);
 
             const context: RenderContext = {};
             const item: WidgetItem = { id: 'mem', type: 'free-memory', rawValue: true };

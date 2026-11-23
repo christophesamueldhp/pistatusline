@@ -991,8 +991,6 @@ describe('items-editor input handlers', () => {
     });
 
     describe('precision keybind', () => {
-        // The items editor injects this bind for numeric widgets, so the handler
-        // applies it itself rather than delegating to handleEditorAction.
         const injectPrecisionKeybind = (widgetImpl: Widget, widget: WidgetItem): CustomKeybind[] => {
             const keybinds = widgetImpl.getCustomKeybinds ? widgetImpl.getCustomKeybinds(widget) : [];
             return widgetImpl.supportsNumberFormat?.() ? [...keybinds, getNumberFormatKeybind()] : keybinds;

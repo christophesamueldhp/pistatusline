@@ -1,8 +1,8 @@
-// ccstatusline ships ink 6.2.0 with this patch (patches/ink@6.2.0.patch): on macOS \x7f is the
-// backspace key, so without it backspace deletes nothing in the editor's text inputs.
-// The build applies it while bundling; `npm test` applies it to node_modules first, so the
-// vendored TUI tests exercise the same ink the bundle ships (ccstatusline uses bun's
-// patchedDependencies for this).
+// ccstatusline ships ink 6.2.0 with the patch in patches/ink@6.2.0.patch. On macOS \x7f is the
+// backspace key, so without the patch backspace deletes nothing in the editor's text inputs.
+// The build applies it while bundling, and `npm test` applies it to node_modules first, so the
+// vendored TUI tests run the same ink that the bundle ships. ccstatusline uses bun's
+// patchedDependencies for this, and npm has no equivalent.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
