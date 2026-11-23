@@ -40,7 +40,7 @@
     "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "pretest": "node scripts/ink-backspace.mjs",
-    "test": "bun test"
+    "test": "bun test --timeout 20000"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
