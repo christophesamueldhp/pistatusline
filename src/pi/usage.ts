@@ -95,7 +95,7 @@ function clampPercent(value: number): number {
 function isoTime(value: unknown): string | undefined {
     let ms: number | undefined;
     if (typeof value === 'string' && Number.isNaN(Number(value))) {
-        ms = Date.parse(value.replace(/(\.\d{3})\d+/, '$1'));
+        ms = Date.parse(value);
     } else {
         const epoch = num(value);
         ms = epoch === undefined || epoch <= 0 ? undefined : epoch > 1e12 ? epoch : epoch * 1000;

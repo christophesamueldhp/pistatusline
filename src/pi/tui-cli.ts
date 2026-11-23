@@ -36,4 +36,3 @@ try {
 } finally {
     process.stdout.write(LEAVE_ALTERNATE_SCREEN);
 }
-process.exit(0);
